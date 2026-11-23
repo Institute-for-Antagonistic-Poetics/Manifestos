@@ -1,0 +1,1033 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TAPE — a cut-up machine for sound</title>
+<style>
+  :root {
+    --paper: #ece2c6;
+    --card: #f5eedb;
+    --ink: #1d1a16;
+    --faint: #7d725c;
+    --red: #b8261b;
+    --tape: #201d1a;
+    --tape-line: #4a443c;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font: 15px/1.45 "Courier New", Courier, monospace;
+  }
+  main { max-width: 1180px; margin: 0 auto; padding: 18px 20px 60px; }
+
+  header h1 {
+    margin: 0;
+    font-size: 44px;
+    letter-spacing: 0.28em;
+    font-weight: bold;
+  }
+  header h1 .scissors { color: var(--red); letter-spacing: 0; }
+  header p { margin: 4px 0 0; color: var(--faint); }
+
+  .card {
+    background: var(--card);
+    border: 2px dashed var(--ink);       /* cut along the dotted line */
+    padding: 12px 14px 14px;
+    margin-top: 16px;
+  }
+  .card h2 {
+    margin: 0 0 8px;
+    font-size: 13px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+  }
+  .card h2 b { color: var(--red); }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+  button, .filebtn {
+    font: inherit;
+    font-size: 14px;
+    background: var(--ink);
+    color: var(--paper);
+    border: 0;
+    padding: 6px 12px;
+    cursor: pointer;
+  }
+  button:hover, .filebtn:hover { background: var(--red); }
+  button.on { background: var(--red); }
+  button:disabled { opacity: 0.35; cursor: default; background: var(--ink); }
+  .filebtn input { display: none; }
+
+  canvas {
+    display: block;
+    width: 100%;
+    background: var(--tape);
+    margin-top: 8px;
+  }
+  #srcView { height: 80px; }
+  #outView { height: 110px; }
+  #mapView { height: 280px; }
+
+  .layout { display: grid; grid-template-columns: 330px 1fr; gap: 0 16px; }
+  @media (max-width: 860px) { .layout { grid-template-columns: 1fr; } }
+
+  .knob { margin: 10px 0 0; }
+  .knob label { display: flex; justify-content: space-between; gap: 8px; font-weight: bold; }
+  .knob label output { font-weight: normal; color: var(--red); }
+  .knob input[type=range], .knob select { width: 100%; accent-color: var(--red); font: inherit; }
+  .hint { font-size: 12px; color: var(--faint); margin: 1px 0 0; }
+
+  #srcName { font-weight: bold; }
+  #status { color: var(--red); min-height: 1.4em; margin-top: 6px; font-size: 13px; }
+  #stats { margin-top: 8px; font-size: 13px; }
+  #stats p { margin: 2px 0; }
+  #stats .egg { color: var(--red); }
+  .caption { font-size: 12px; color: var(--faint); margin: 4px 0 0; }
+  textarea {
+    width: 100%;
+    height: 150px;
+    font: 12px/1.35 "Courier New", Courier, monospace;
+    background: var(--paper);
+    border: 1px solid var(--faint);
+    padding: 6px;
+  }
+  .seed { width: 90px; font: inherit; padding: 2px 4px; }
+  kbd { border: 1px solid var(--faint); padding: 0 4px; font-size: 12px; }
+  details { margin-top: 8px; font-size: 13px; }
+  details summary { cursor: pointer; font-weight: bold; }
+</style>
+</head>
+<body>
+<main>
+
+<header>
+  <h1>TAPE <span class="scissors">✂</span></h1>
+  <p>A cut-up machine for sound, after Burroughs, Gysin &amp; Sommerville. Hard cuts only, unless you lose your nerve.</p>
+</header>
+
+<!-- ============ SOURCE ============ -->
+<section class="card">
+  <h2><b>1.</b> The tape</h2>
+  <div class="row">
+    <label class="filebtn">Load a sound file…<input type="file" id="fileIn" accept="audio/*"></label>
+    <button id="recBtn">● Record</button>
+    <button id="demoBtn">Demo tape</button>
+    <button id="playSrcBtn" disabled>▶ Play original</button>
+    <span>&nbsp;<span id="srcName">no tape loaded</span></span>
+  </div>
+  <canvas id="srcView"></canvas>
+  <p class="caption">Colour marks position on the original tape: early is orange, late is violet. When you play the cut-up, the red read-head shows where each sound is really coming from.</p>
+  <div id="status"></div>
+</section>
+
+<div class="layout">
+
+<!-- ============ SCISSORS ============ -->
+<section class="card">
+  <h2><b>2.</b> Scissors</h2>
+
+  <div class="knob">
+    <label for="grain">grain size <output id="grainOut"></output></label>
+    <input type="range" id="grain" min="0" max="1000" step="1">
+    <p class="hint" id="grainHint"></p>
+  </div>
+
+  <div class="knob">
+    <label for="jitter">jitter <output id="jitterOut"></output></label>
+    <input type="range" id="jitter" min="0" max="90" step="1">
+    <p class="hint">Unsteady hands: each piece's length varies by up to this much.</p>
+  </div>
+
+  <div class="knob">
+    <label for="order">order</label>
+    <select id="order">
+      <option value="original">original (no rearranging)</option>
+      <option value="scatter">scatter (pieces drift locally)</option>
+      <option value="shuffle">shuffle (Tzara's hat)</option>
+      <option value="retrograde">retrograde (last piece first)</option>
+    </select>
+  </div>
+
+  <div class="knob" id="scatterKnob">
+    <label for="scatter">scatter distance <output id="scatterOut"></output></label>
+    <input type="range" id="scatter" min="0" max="100" step="1">
+  </div>
+
+  <div class="knob">
+    <label for="reverse">flip pieces <output id="reverseOut"></output></label>
+    <input type="range" id="reverse" min="0" max="100" step="1">
+    <p class="hint">Chance that any one piece is spliced in backwards.</p>
+  </div>
+
+  <div class="knob">
+    <label for="speed">tape speed <output id="speedOut"></output></label>
+    <input type="range" id="speed" min="-12" max="24" step="1">
+    <p class="hint">Varispeed, as on a real deck: pitch and time change together.</p>
+  </div>
+
+  <div class="knob">
+    <label for="wow">wow <output id="wowOut"></output></label>
+    <input type="range" id="wow" min="0" max="6" step="0.5">
+    <p class="hint">A different random speed for every piece.</p>
+  </div>
+
+  <div class="knob">
+    <label for="fade">fade at splices <output id="fadeOut"></output></label>
+    <input type="range" id="fade" min="0" max="50" step="1">
+    <p class="hint">0 = hard cuts, as Burroughs did them. Anything else is losing your nerve.</p>
+  </div>
+
+  <div class="knob">
+    <label for="seed">seed</label>
+    <div class="row">
+      <input type="number" id="seed" class="seed" min="0" max="4294967295" step="1">
+      <button id="diceBtn" title="new seed (R)">🎲 reroll</button>
+    </div>
+    <p class="hint">Same tape + same knobs + same seed = the same cut-up, every time.</p>
+  </div>
+</section>
+
+<!-- ============ OUTPUT ============ -->
+<section class="card">
+  <h2><b>3.</b> The cut-up</h2>
+  <div class="row">
+    <button id="playOutBtn" disabled>▶ Play cut-up</button>
+    <label><input type="checkbox" id="loop"> loop</label>
+    <button id="wavBtn" disabled>⤓ Save WAV</button>
+  </div>
+  <canvas id="outView"></canvas>
+  <p class="caption">Red marks are audible splices. Seams where two neighbouring pieces happen to land back in their original order heal over and are not marked.</p>
+  <div id="stats"></div>
+
+  <canvas id="mapView"></canvas>
+  <p class="caption"><b>Provenance map.</b> Each line is one piece of tape. Across: when you hear it. Up: where it was on the original. The dashed diagonal is the tape played straight through. A line sloping down was played backwards; a steeper line was played faster; scattered dashes are a cut-up.</p>
+</section>
+
+</div>
+
+<!-- ============ RECIPE ============ -->
+<section class="card">
+  <h2><b>4.</b> Recipe</h2>
+  <p class="caption" style="margin-top:0">Everything needed to remake this cut-up from the same tape. Copy it to share; paste one in and press Apply to restore it.</p>
+  <textarea id="recipe" spellcheck="false"></textarea>
+  <div class="row" style="margin-top:6px">
+    <button id="copyBtn">Copy recipe</button>
+    <button id="applyBtn">Apply recipe</button>
+  </div>
+  <details>
+    <summary>About, keys, and fine print</summary>
+    <p>Keys: <kbd>space</kbd> play/stop the cut-up · <kbd>r</kbd> reroll the seed.</p>
+    <p>Pipeline, in order: cut into pieces → rearrange → flip some → set speeds → splice. Each step draws on its own stream of random numbers, so turning one knob never reshuffles the others: raising "flip pieces" only ever adds flips, it never chooses different ones.</p>
+    <p>Everything runs in this page; nothing is uploaded. Stereo files are mixed to mono, and tapes are trimmed to 5 minutes. If the Record button is refused when this file is opened directly, serve the folder instead (<code>python3 -m http.server</code>) and open <code>http://localhost:8000/tape.html</code>.</p>
+    <p>Cut up your own voice. Cutting up other people's voices is how you put words in their mouths. That was Burroughs's point, and it is also how a deepfake works.</p>
+  </details>
+</section>
+
+</main>
+
+<!-- =====================================================================
+     CORE: pure functions, no DOM. Everything that touches audio samples.
+     ===================================================================== -->
+<script id="core">
+"use strict";
+
+// ---------- randomness ----------
+
+// mulberry32: a small seeded generator returning uniform floats in [0, 1).
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a = (a + 0x6D2B79F5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// A separate random stream for each named step, derived from one seed.
+// The name is hashed (FNV-1a) and mixed into the seed.
+function stream(seed, name) {
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < name.length; i++) {
+    h ^= name.charCodeAt(i);
+    h = Math.imul(h, 16777619) >>> 0;
+  }
+  return mulberry32((seed ^ h) >>> 0);
+}
+
+// Fisher–Yates: every ordering equally likely. Returns a new array.
+function shuffleArray(arr, rng) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    const tmp = a[i]; a[i] = a[j]; a[j] = tmp;
+  }
+  return a;
+}
+
+// ---------- the edit list ----------
+// A segment points into a source: { src, start, end, rate, reverse, gain }.
+// start/end are sample indices, end exclusive. Sources are never modified.
+
+// Cut [0, length) into consecutive pieces of about grainSec seconds.
+function cutByGrain(srcId, length, sampleRate, grainSec, jitter, rng) {
+  const segs = [];
+  const g = Math.max(1, Math.round(grainSec * sampleRate));
+  let pos = 0;
+  while (pos < length) {
+    const len = Math.max(1, Math.round(g * (1 + jitter * (2 * rng() - 1))));
+    const end = Math.min(pos + len, length);
+    segs.push({ src: srcId, start: pos, end: end, rate: 1, reverse: false, gain: 1 });
+    pos = end;
+  }
+  return segs;
+}
+
+// Rearrange the pieces.
+//   original:   unchanged
+//   scatter:    piece i gets key i + U*d (U uniform); sorting by key lets each
+//               piece drift at most about d places, where d = scatter * n
+//   shuffle:    uniform random permutation (Tzara)
+//   retrograde: last piece first; each piece still plays forwards
+function orderSegments(segs, mode, scatter, rng) {
+  if (mode === "shuffle") return shuffleArray(segs, rng);
+  if (mode === "retrograde") return segs.slice().reverse();
+  if (mode === "scatter") {
+    const d = scatter * segs.length;
+    const keyed = segs.map((s, i) => ({ s: s, key: i + rng() * d }));
+    keyed.sort((a, b) => a.key - b.key);
+    return keyed.map(k => k.s);
+  }
+  return segs.slice();
+}
+
+// Flip each piece with probability p. One random number per piece, always,
+// so raising p only adds flips and never picks different pieces.
+function flipSome(segs, p, rng) {
+  return segs.map(s => {
+    const u = rng();
+    return u < p ? Object.assign({}, s, { reverse: !s.reverse }) : s;
+  });
+}
+
+// Set each piece's speed: rate × 2^(wowOctaves × uniform(-1, 1)).
+function setSpeed(segs, rate, wowOctaves, rng) {
+  return segs.map(s => {
+    const u = rng();
+    return Object.assign({}, s, { rate: rate * Math.pow(2, wowOctaves * (2 * u - 1)) });
+  });
+}
+
+// Does b pick up exactly where a left off? Then the seam between them is not
+// really a splice: the original tape is intact across it.
+function continues(a, b) {
+  if (a.src !== b.src || a.reverse !== b.reverse || a.rate !== b.rate) return false;
+  return a.reverse ? b.end === a.start : a.end === b.start;
+}
+
+// How many output samples a piece occupies after speed change.
+function segOutLength(seg) {
+  return Math.max(1, Math.round((seg.end - seg.start) / seg.rate));
+}
+
+// Render one piece into out[offset ...], reading samples by linear interpolation.
+function renderSegmentInto(out, offset, seg, samples, fadeIn, fadeOut) {
+  const inLen = seg.end - seg.start;
+  const outLen = segOutLength(seg);
+  for (let i = 0; i < outLen; i++) {
+    let t = i * seg.rate;                       // read position inside the piece
+    if (seg.reverse) t = inLen - 1 - t;
+    if (t < 0) t = 0; else if (t > inLen - 1) t = inLen - 1;
+    const j = Math.floor(t), f = t - j;
+    const a = samples[seg.start + j];
+    const b = j + 1 < inLen ? samples[seg.start + j + 1] : a;
+    out[offset + i] = seg.gain * (a + f * (b - a));
+  }
+  // Linear fades, only where there is a real splice.
+  const nIn = Math.min(fadeIn, outLen >> 1), nOut = Math.min(fadeOut, outLen >> 1);
+  for (let i = 0; i < nIn; i++) out[offset + i] *= i / nIn;
+  for (let i = 0; i < nOut; i++) out[offset + outLen - 1 - i] *= i / nOut;
+  return outLen;
+}
+
+// Splice the whole edit list into one array. Also returns, for every piece,
+// where it landed in the output ("placements"), which drives all the drawing.
+function renderTrack(segs, sources, fadeSamples) {
+  let total = 0;
+  for (const s of segs) total += segOutLength(s);
+  const out = new Float32Array(total);
+  const placements = [];
+  let off = 0;
+  for (let k = 0; k < segs.length; k++) {
+    const s = segs[k];
+    const cutBefore = k > 0 && !continues(segs[k - 1], s);
+    const cutAfter = k < segs.length - 1 && !continues(s, segs[k + 1]);
+    const n = renderSegmentInto(out, off, s, sources[s.src].samples,
+                                cutBefore ? fadeSamples : 0, cutAfter ? fadeSamples : 0);
+    placements.push({ outStart: off, outEnd: off + n, start: s.start, end: s.end,
+                      reverse: s.reverse, rate: s.rate, cutBefore: cutBefore });
+    off += n;
+  }
+  return { samples: out, placements: placements };
+}
+
+// Which piece is playing at output sample i? (binary search)
+function placementAt(placements, i) {
+  let lo = 0, hi = placements.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >> 1;
+    if (placements[mid].outStart <= i) lo = mid; else hi = mid - 1;
+  }
+  return placements[lo];
+}
+
+// Where on the original tape is output sample i being read from?
+function sourcePosAt(placements, i) {
+  const p = placementAt(placements, i);
+  const frac = (i - p.outStart) / Math.max(1, p.outEnd - p.outStart);
+  const span = p.end - p.start;
+  return p.reverse ? p.end - frac * span : p.start + frac * span;
+}
+
+// Count seams and audible splices.
+function seamStats(placements) {
+  const seams = Math.max(0, placements.length - 1);
+  let cuts = 0;
+  for (const p of placements) if (p.cutBefore) cuts++;
+  return { pieces: placements.length, seams: seams, cuts: cuts, healed: seams - cuts };
+}
+
+// ---------- files ----------
+
+// 16-bit PCM mono WAV.
+function encodeWav(samples, sampleRate) {
+  const buf = new ArrayBuffer(44 + samples.length * 2), v = new DataView(buf);
+  const str = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+  str(0, "RIFF"); v.setUint32(4, 36 + samples.length * 2, true); str(8, "WAVE");
+  str(12, "fmt "); v.setUint32(16, 16, true); v.setUint16(20, 1, true);  // PCM
+  v.setUint16(22, 1, true); v.setUint32(24, sampleRate, true);          // mono, rate
+  v.setUint32(28, sampleRate * 2, true); v.setUint16(32, 2, true);      // byte rate, block align
+  v.setUint16(34, 16, true); str(36, "data"); v.setUint32(40, samples.length * 2, true);
+  for (let i = 0; i < samples.length; i++) {
+    const s = Math.max(-1, Math.min(1, samples[i]));
+    v.setInt16(44 + 2 * i, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+  }
+  return buf;
+}
+
+// A demo tape: a pentatonic scale climbing three octaves, so any
+// rearrangement is obvious to the ear.
+function makeDemoSamples(sampleRate) {
+  const notes = 16, dur = 0.45, len = Math.round(dur * sampleRate);
+  const x = new Float32Array(notes * len);
+  const scale = [0, 2, 4, 7, 9];
+  for (let k = 0; k < notes; k++) {
+    const semis = 12 * Math.floor(k / 5) + scale[k % 5];
+    const f = 220 * Math.pow(2, semis / 12);
+    for (let i = 0; i < len; i++) {
+      const t = i / sampleRate;
+      const env = Math.min(1, t / 0.01) * Math.exp(-5 * t);
+      let s = 0;
+      for (let h = 1; h <= 4; h++) s += Math.sin(2 * Math.PI * f * h * t) / h;
+      x[k * len + i] = 0.35 * env * s;
+    }
+  }
+  return x;
+}
+
+// ---------- knob mappings and words ----------
+
+// Grain slider 0..1000 maps logarithmically to 10 ms .. 10 s.
+function grainFromSlider(v) { return 0.01 * Math.pow(1000, v / 1000); }
+function sliderFromGrain(g) { return Math.round(1000 * Math.log(g / 0.01) / Math.log(1000)); }
+
+// Rough landmarks for speech. They depend on the material.
+function perceptualLabel(sec) {
+  if (sec < 0.05) return "Below the length of a phoneme: speech turns to texture. Burroughs described cutting speech into pieces 1/50 s long.";
+  if (sec < 0.3) return "Syllables and fragments of syllables.";
+  if (sec < 2) return "Roughly word-sized: new 'words' form at the seams.";
+  return "Phrases and sentences: a Gysin quartering, for the ear.";
+}
+
+function formatTime(sec) {
+  const m = Math.floor(sec / 60), s = sec - 60 * m;
+  return m + ":" + (s < 10 ? "0" : "") + s.toFixed(1);
+}
+</script>
+
+<!-- =====================================================================
+     APP: the page, the audio device, the drawing.
+     ===================================================================== -->
+<script id="app">
+"use strict";
+
+const $ = id => document.getElementById(id);
+const MAX_SECONDS = 300;
+
+let actx = null;
+function audio() {
+  if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+  return actx;
+}
+
+const state = {
+  src: null,      // { id, name, samples, sampleRate, peak }
+  out: null,      // { samples, placements }
+  stats: null,
+  params: { seed: 1959, grainSec: 0.25, jitter: 0, order: "shuffle", scatter: 0.05,
+            reverseP: 0, semitones: 0, wowSemis: 0, fadeMs: 0 },
+  player: null,   // { which, node, startedAt, offset, len, sr }
+  dirty: true,
+};
+let nextSourceId = 1, takes = 0;
+
+function status(msg) { $("status").textContent = msg || ""; }
+
+// ---------- sources ----------
+
+function makeSource(name, samples, sampleRate) {
+  const max = MAX_SECONDS * sampleRate;
+  if (samples.length > max) {
+    samples = samples.slice(0, max);
+    status("Trimmed to the first " + MAX_SECONDS / 60 + " minutes.");
+  }
+  let peak = 1e-6;
+  for (let i = 0; i < samples.length; i++) peak = Math.max(peak, Math.abs(samples[i]));
+  return { id: nextSourceId++, name: name, samples: samples, sampleRate: sampleRate, peak: peak };
+}
+
+function setSource(src) {
+  stopPlayer();
+  state.src = src;
+  $("srcName").textContent = src.name + " (" + formatTime(src.samples.length / src.sampleRate) + ")";
+  $("playSrcBtn").disabled = false;
+  rebuild();
+}
+
+async function decodeToMono(arrayBuffer) {
+  const buf = await audio().decodeAudioData(arrayBuffer);   // resamples to the device rate
+  const n = buf.length, out = new Float32Array(n);
+  for (let c = 0; c < buf.numberOfChannels; c++) {
+    const ch = buf.getChannelData(c);
+    for (let i = 0; i < n; i++) out[i] += ch[i] / buf.numberOfChannels;
+  }
+  return { samples: out, sampleRate: buf.sampleRate };
+}
+
+async function loadFile(file) {
+  if (!file) return;
+  status("Decoding " + file.name + "…");
+  try {
+    const d = await decodeToMono(await file.arrayBuffer());
+    status("");
+    setSource(makeSource(file.name, d.samples, d.sampleRate));
+  } catch (e) {
+    status("Couldn't decode " + file.name + ". Try a WAV, MP3 or OGG file.");
+  }
+}
+
+function loadDemo() {
+  const sr = audio().sampleRate;
+  status("");
+  setSource(makeSource("demo tape: a scale climbing three octaves", makeDemoSamples(sr), sr));
+}
+
+// ---------- recording ----------
+
+let recorder = null, recTimer = null;
+
+async function toggleRecord() {
+  if (recorder) { recorder.stop(); return; }
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder) {
+    status("This browser won't open the microphone from this page. Serve the folder (python3 -m http.server) and open http://localhost:8000/tape.html.");
+    return;
+  }
+  let mic;
+  try {
+    mic = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false } });
+  } catch (e) {
+    status("Microphone refused (" + e.name + "). If you opened this file directly, try serving it: python3 -m http.server.");
+    return;
+  }
+  stopPlayer();
+  const chunks = [];
+  recorder = new MediaRecorder(mic);
+  recorder.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+  recorder.onstop = async () => {
+    mic.getTracks().forEach(t => t.stop());
+    clearInterval(recTimer);
+    recorder = null;
+    $("recBtn").classList.remove("on");
+    $("recBtn").textContent = "● Record";
+    try {
+      const blob = new Blob(chunks, { type: chunks.length ? chunks[0].type : "" });
+      const d = await decodeToMono(await blob.arrayBuffer());
+      takes++;
+      setSource(makeSource("mic take " + takes, d.samples, d.sampleRate));
+    } catch (e) {
+      status("Recorded, but couldn't decode the recording in this browser.");
+    }
+  };
+  recorder.start();
+  const t0 = performance.now();
+  $("recBtn").classList.add("on");
+  recTimer = setInterval(() => {
+    $("recBtn").textContent = "■ Stop (" + ((performance.now() - t0) / 1000).toFixed(0) + " s)";
+  }, 200);
+  $("recBtn").textContent = "■ Stop (0 s)";
+}
+
+// ---------- knobs ----------
+
+function readControls() {
+  const p = state.params;
+  p.grainSec = grainFromSlider(+$("grain").value);
+  p.jitter = +$("jitter").value / 100;
+  p.order = $("order").value;
+  p.scatter = Math.pow(+$("scatter").value / 100, 2);   // squared: finer control near 0
+  p.reverseP = +$("reverse").value / 100;
+  p.semitones = +$("speed").value;
+  p.wowSemis = +$("wow").value;
+  p.fadeMs = +$("fade").value;
+  const seed = Math.floor(+$("seed").value);
+  p.seed = Number.isFinite(seed) ? (seed >>> 0) : 0;
+}
+
+function writeControls() {
+  const p = state.params;
+  $("grain").value = sliderFromGrain(p.grainSec);
+  $("jitter").value = Math.round(p.jitter * 100);
+  $("order").value = p.order;
+  $("scatter").value = Math.round(Math.sqrt(p.scatter) * 100);
+  $("reverse").value = Math.round(p.reverseP * 100);
+  $("speed").value = p.semitones;
+  $("wow").value = p.wowSemis;
+  $("fade").value = p.fadeMs;
+  $("seed").value = p.seed;
+}
+
+function updateLabels() {
+  const p = state.params;
+  const g = p.grainSec;
+  $("grainOut").textContent = g < 1 ? Math.round(g * 1000) + " ms" : g.toFixed(2) + " s";
+  $("grainHint").textContent = perceptualLabel(g);
+  $("jitterOut").textContent = "±" + Math.round(p.jitter * 100) + "%";
+  $("scatterKnob").style.display = p.order === "scatter" ? "" : "none";
+  const n = state.out ? state.out.placements.length : 0;
+  $("scatterOut").textContent = n ? "up to ~" + Math.ceil(p.scatter * n) + " places" : Math.round(p.scatter * 100) + "%";
+  $("reverseOut").textContent = Math.round(p.reverseP * 100) + "%";
+  const rate = Math.pow(2, p.semitones / 12);
+  const ips = 7.5 * rate;
+  $("speedOut").textContent = "×" + rate.toFixed(2) + " (" + (p.semitones > 0 ? "+" : "") + p.semitones + " st, " + ips.toFixed(ips < 10 ? 2 : 1) + " ips)";
+  $("wowOut").textContent = "±" + p.wowSemis + " st";
+  $("fadeOut").textContent = p.fadeMs === 0 ? "hard cuts" : p.fadeMs + " ms";
+}
+
+function onKnob() {
+  readControls();
+  updateLabels();
+  scheduleRebuild();
+}
+
+// ---------- the pipeline ----------
+
+let rebuildTimer = null;
+function scheduleRebuild() {
+  clearTimeout(rebuildTimer);
+  rebuildTimer = setTimeout(rebuild, 40);
+}
+
+function rebuild() {
+  const src = state.src;
+  if (!src) { updateRecipe(); return; }
+  const p = state.params, sr = src.sampleRate;
+  let segs = cutByGrain(src.id, src.samples.length, sr, p.grainSec, p.jitter, stream(p.seed, "cut"));
+  segs = orderSegments(segs, p.order, p.scatter, stream(p.seed, "order"));
+  segs = flipSome(segs, p.reverseP, stream(p.seed, "flip"));
+  segs = setSpeed(segs, Math.pow(2, p.semitones / 12), p.wowSemis / 12, stream(p.seed, "speed"));
+  const sources = {}; sources[src.id] = src;
+
+  // Keep the playhead at the same relative spot if the cut-up is playing.
+  const pl = state.player;
+  const frac = pl && pl.which === "out" ? playerPos(pl) / pl.len : null;
+
+  state.out = renderTrack(segs, sources, Math.round(p.fadeMs / 1000 * sr));
+  state.stats = seamStats(state.out.placements);
+
+  $("playOutBtn").disabled = false;
+  $("wavBtn").disabled = false;
+  updateLabels();
+  writeStats();
+  updateRecipe();
+  drawBases();
+  if (frac !== null) startPlayer("out", Math.floor(frac * state.out.samples.length));
+}
+
+// ---------- the commentary ----------
+
+function writeStats() {
+  const s = state.stats, p = state.params, src = state.src, out = state.out;
+  if (!s) { $("stats").innerHTML = ""; return; }
+  const sr = src.sampleRate;
+  const lines = [];
+  lines.push(formatTime(src.samples.length / sr) + " of tape → " + formatTime(out.samples.length / sr) +
+             " of cut-up · " + s.pieces + " piece" + (s.pieces === 1 ? "" : "s") +
+             " · " + s.cuts + " audible splice" + (s.cuts === 1 ? "" : "s") +
+             " · " + s.healed + " seam" + (s.healed === 1 ? "" : "s") + " healed");
+
+  if (p.order === "shuffle" && s.pieces > 1) {
+    // Each of the n-1 original neighbours ends up adjacent again with probability 1/n.
+    const expected = (s.pieces - 1) / s.pieces;
+    lines.push("Tzara's hat expects about " + expected.toFixed(2) + " seam to heal by chance; this draw healed " + s.healed + ".");
+  }
+
+  // The scissors have a sound of their own.
+  const rate = Math.pow(2, p.semitones / 12);
+  const T = p.grainSec / rate;                       // seconds between cuts in the output
+  if (p.fadeMs === 0 && s.cuts > s.seams / 2 && s.pieces > 2) {
+    if (T < 0.05) {
+      if (p.jitter === 0 && p.wowSemis === 0) {
+        lines.push("Hard cuts every " + (T * 1000).toFixed(0) + " ms: the splices hum at about " + (1 / T).toFixed(0) + " Hz, plus harmonics. The scissors have a pitch.");
+      } else {
+        lines.push("Hard cuts at uneven intervals: the splice hum smears into crackle.");
+      }
+    } else if (T < 0.5 && p.jitter === 0 && p.wowSemis === 0) {
+      lines.push("A splice click " + (1 / T).toFixed(1) + " times a second: the scissors keep time.");
+    }
+  }
+  if (p.fadeMs > 0 && p.fadeMs / 1000 * 2 > T) {
+    lines.push("The fades are longer than the pieces: the tape now pulses instead of cutting.");
+  }
+
+  // Easter eggs: when the scissors undo themselves.
+  if (s.pieces > 1 && s.cuts === 0) {
+    const allBack = out.placements.every(pl => pl.reverse);
+    lines.push(allBack
+      ? "<span class=egg>Every seam has healed. Congratulations: you have reinvented playing the tape backwards.</span>"
+      : "<span class=egg>Every seam has healed. The tape is intact; the scissors cut nothing.</span>");
+  }
+  $("stats").innerHTML = lines.map(l => "<p>" + l + "</p>").join("");
+}
+
+// ---------- recipe ----------
+
+function updateRecipe() {
+  const p = state.params;
+  const r = {
+    tool: "tape", version: 1,
+    tape: state.src ? state.src.name : null,
+    pipeline: ["cut", "order", "flip", "speed", "splice"],
+    seed: p.seed,
+    grainSeconds: +p.grainSec.toFixed(4),
+    jitter: p.jitter,
+    order: p.order,
+    scatter: +p.scatter.toFixed(4),
+    flipProbability: p.reverseP,
+    speedSemitones: p.semitones,
+    wowSemitones: p.wowSemis,
+    fadeMs: p.fadeMs,
+  };
+  $("recipe").value = JSON.stringify(r, null, 2);
+}
+
+function applyRecipe() {
+  let r;
+  try { r = JSON.parse($("recipe").value); } catch (e) { status("That recipe isn't valid JSON."); return; }
+  const p = state.params, num = (v, d) => (typeof v === "number" && Number.isFinite(v) ? v : d);
+  p.seed = num(r.seed, p.seed) >>> 0;
+  p.grainSec = Math.min(10, Math.max(0.01, num(r.grainSeconds, p.grainSec)));
+  p.jitter = Math.min(0.9, Math.max(0, num(r.jitter, p.jitter)));
+  if (["original", "scatter", "shuffle", "retrograde"].includes(r.order)) p.order = r.order;
+  p.scatter = Math.min(1, Math.max(0, num(r.scatter, p.scatter)));
+  p.reverseP = Math.min(1, Math.max(0, num(r.flipProbability, p.reverseP)));
+  p.semitones = Math.min(24, Math.max(-12, Math.round(num(r.speedSemitones, p.semitones))));
+  p.wowSemis = Math.min(6, Math.max(0, num(r.wowSemitones, p.wowSemis)));
+  p.fadeMs = Math.min(50, Math.max(0, num(r.fadeMs, p.fadeMs)));
+  writeControls();                      // sliders show the nearest step; params keep the exact values
+  updateLabels();
+  status(state.src && r.tape && r.tape !== state.src.name
+    ? "Recipe applied, but it was made for \"" + r.tape + "\"; load that tape to hear the same cut-up." : "");
+  rebuild();
+}
+
+async function copyRecipe() {
+  const t = $("recipe");
+  try { await navigator.clipboard.writeText(t.value); status("Recipe copied."); }
+  catch (e) { t.focus(); t.select(); status("Recipe selected: press Ctrl+C (⌘C) to copy."); }
+}
+
+// ---------- playback ----------
+
+function playerPos(p) {
+  const s = p.offset + (audio().currentTime - p.startedAt) * p.sr;
+  return p.node.loop ? s % p.len : Math.min(s, p.len - 1);
+}
+
+function startPlayer(which, offset) {
+  stopPlayer();
+  const a = audio();
+  a.resume();
+  const samples = which === "src" ? state.src.samples : state.out.samples;
+  const buf = a.createBuffer(1, samples.length, state.src.sampleRate);
+  buf.copyToChannel(samples, 0);
+  const node = a.createBufferSource();
+  node.buffer = buf;
+  node.loop = $("loop").checked && which === "out";
+  node.connect(a.destination);
+  const p = { which: which, node: node, startedAt: a.currentTime, offset: offset, len: samples.length, sr: buf.sampleRate };
+  node.onended = () => { if (state.player === p) { state.player = null; updateButtons(); state.dirty = true; } };
+  node.start(0, offset / buf.sampleRate);
+  state.player = p;
+  updateButtons();
+}
+
+function stopPlayer() {
+  const p = state.player;
+  state.player = null;
+  if (p) { try { p.node.stop(); } catch (e) {} }
+  updateButtons();
+  state.dirty = true;
+}
+
+function togglePlay(which) {
+  if (!state.src || (which === "out" && !state.out)) return;
+  if (state.player && state.player.which === which) stopPlayer();
+  else startPlayer(which, 0);
+}
+
+function updateButtons() {
+  const w = state.player ? state.player.which : null;
+  $("playSrcBtn").textContent = w === "src" ? "■ Stop" : "▶ Play original";
+  $("playOutBtn").textContent = w === "out" ? "■ Stop" : "▶ Play cut-up";
+  $("playSrcBtn").classList.toggle("on", w === "src");
+  $("playOutBtn").classList.toggle("on", w === "out");
+}
+
+function exportWav() {
+  if (!state.out) return;
+  const blob = new Blob([encodeWav(state.out.samples, state.src.sampleRate)], { type: "audio/wav" });
+  const slug = state.src.name.replace(/\.[^.]*$/, "").replace(/[^a-z0-9]+/gi, "-").slice(0, 40);
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "tape_" + slug + "_seed" + state.params.seed + ".wav";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+
+// ---------- drawing ----------
+// Each view keeps an offscreen "cache" of its static picture; every animation
+// frame copies the cache and draws the moving playheads on top.
+
+const views = {
+  src: { canvas: $("srcView"), cache: document.createElement("canvas") },
+  out: { canvas: $("outView"), cache: document.createElement("canvas") },
+  map: { canvas: $("mapView"), cache: document.createElement("canvas") },
+};
+
+function prepare(view) {
+  const dpr = window.devicePixelRatio || 1;
+  const c = view.canvas;
+  const w = Math.max(1, Math.round(c.clientWidth * dpr)), h = Math.max(1, Math.round(c.clientHeight * dpr));
+  if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }
+  view.cache.width = w; view.cache.height = h;
+  const g = view.cache.getContext("2d");
+  g.clearRect(0, 0, w, h);
+  return { g: g, w: w, h: h, dpr: dpr };
+}
+
+// Colour for a position on the original tape, 0..1: orange → violet.
+function hue(f, light) { return "hsl(" + Math.round(25 + 260 * f) + ",70%," + (light || 62) + "%)"; }
+
+function drawSourceBase() {
+  const { g, w, h } = prepare(views.src);
+  const src = state.src;
+  if (!src) { emptyLabel(g, w, h, "load, record, or try the demo tape"); return; }
+  const x = src.samples, n = x.length, mid = h / 2, k = 0.92 * mid / src.peak;
+  for (let px = 0; px < w; px++) {
+    const a = Math.floor(px * n / w), b = Math.max(a + 1, Math.floor((px + 1) * n / w));
+    let lo = 0, hi = 0;
+    for (let i = a; i < b && i < n; i++) { const v = x[i]; if (v < lo) lo = v; if (v > hi) hi = v; }
+    g.fillStyle = hue(px / w);
+    g.fillRect(px, mid - hi * k, 1, Math.max(1, (hi - lo) * k));
+  }
+}
+
+function drawOutBase() {
+  const { g, w, h, dpr } = prepare(views.out);
+  const out = state.out, src = state.src;
+  if (!out) { emptyLabel(g, w, h, "the cut-up appears here"); return; }
+  const x = out.samples, n = x.length, mid = h / 2, k = 0.92 * mid / src.peak;
+  const P = out.placements, S = src.samples.length;
+  let j = 0;
+  for (let px = 0; px < w; px++) {
+    const a = Math.floor(px * n / w), b = Math.max(a + 1, Math.floor((px + 1) * n / w));
+    let lo = 0, hi = 0;
+    for (let i = a; i < b && i < n; i++) { const v = x[i]; if (v < lo) lo = v; if (v > hi) hi = v; }
+    const c = (a + b) >> 1;
+    while (j < P.length - 1 && P[j].outEnd <= c) j++;      // columns only move forward
+    g.fillStyle = hue(sourcePosAt([P[j]], c) / S);
+    g.fillRect(px, mid - hi * k, 1, Math.max(1, (hi - lo) * k));
+  }
+  // Splice marks: full-height lines if there's room, otherwise ticks.
+  const cuts = P.filter(p => p.cutBefore);
+  const roomy = cuts.length < w / (4 * dpr);
+  g.fillStyle = "rgba(220,50,35,0.85)";
+  for (const p of cuts) {
+    const px = Math.round(p.outStart / n * w);
+    if (roomy) { g.globalAlpha = 0.45; g.fillRect(px, 0, dpr, h); g.globalAlpha = 1; }
+    g.fillRect(px, 0, dpr, 6 * dpr);
+    g.fillRect(px, h - 6 * dpr, dpr, 6 * dpr);
+  }
+}
+
+function mapRect(w, h, dpr) {
+  return { x0: 12 * dpr, y0: 22 * dpr, x1: w - 12 * dpr, y1: h - 22 * dpr };
+}
+
+function drawMapBase() {
+  const { g, w, h, dpr } = prepare(views.map);
+  const R = mapRect(w, h, dpr), W = R.x1 - R.x0, H = R.y1 - R.y0;
+  g.strokeStyle = "#4a443c"; g.lineWidth = dpr;
+  g.strokeRect(R.x0, R.y0, W, H);
+  g.fillStyle = "#9a8f78";
+  g.font = (11 * dpr) + "px 'Courier New', monospace";
+  g.fillText("↑ where it was on the original tape", R.x0, R.y0 - 7 * dpr);
+  const lab = "when you hear it →";
+  g.fillText(lab, R.x1 - g.measureText(lab).width, h - 6 * dpr);
+  const out = state.out, src = state.src;
+  if (!out) return;
+
+  // The tape played straight through.
+  g.setLineDash([4 * dpr, 4 * dpr]);
+  g.beginPath(); g.moveTo(R.x0, R.y1); g.lineTo(R.x1, R.y0); g.stroke();
+  g.setLineDash([]);
+
+  const N = out.samples.length, S = src.samples.length;
+  g.lineWidth = (out.placements.length > 2000 ? 1 : 2.5) * dpr;
+  g.lineCap = "butt";
+  for (const p of out.placements) {
+    const ya = p.reverse ? p.end : p.start, yb = p.reverse ? p.start : p.end;
+    g.strokeStyle = hue((p.start + p.end) / 2 / S);
+    g.beginPath();
+    g.moveTo(R.x0 + p.outStart / N * W, R.y1 - ya / S * H);
+    g.lineTo(R.x0 + p.outEnd / N * W, R.y1 - yb / S * H);
+    g.stroke();
+  }
+}
+
+function emptyLabel(g, w, h, text) {
+  g.fillStyle = "#6f6656";
+  g.font = (13 * (window.devicePixelRatio || 1)) + "px 'Courier New', monospace";
+  g.fillText(text, 12, h / 2 + 4);
+}
+
+function drawBases() {
+  drawSourceBase(); drawOutBase(); drawMapBase();
+  state.dirty = true;
+}
+
+function blit(view) {
+  const c = view.canvas, g = c.getContext("2d");
+  g.clearRect(0, 0, c.width, c.height);
+  g.drawImage(view.cache, 0, 0);
+  return g;
+}
+
+function headLine(g, x, h, dpr) {
+  g.fillStyle = "#ff3b2a";
+  g.fillRect(Math.round(x) - dpr, 0, 2 * dpr, h);
+}
+
+function drawFrame() {
+  requestAnimationFrame(drawFrame);
+  if (!state.dirty && !state.player) return;
+  state.dirty = false;
+  const dpr = window.devicePixelRatio || 1;
+  const pl = state.player;
+  let srcPos = null, outPos = null;
+  if (pl) {
+    const pos = playerPos(pl);
+    if (pl.which === "src") srcPos = pos;
+    else { outPos = pos; srcPos = sourcePosAt(state.out.placements, pos); }
+  }
+
+  const gs = blit(views.src);
+  if (srcPos !== null) headLine(gs, srcPos / state.src.samples.length * views.src.canvas.width, views.src.canvas.height, dpr);
+
+  const go = blit(views.out);
+  if (outPos !== null) headLine(go, outPos / state.out.samples.length * views.out.canvas.width, views.out.canvas.height, dpr);
+
+  const gm = blit(views.map);
+  if (outPos !== null) {
+    const c = views.map.canvas, R = mapRect(c.width, c.height, dpr);
+    const x = R.x0 + outPos / state.out.samples.length * (R.x1 - R.x0);
+    const y = R.y1 - srcPos / state.src.samples.length * (R.y1 - R.y0);
+    gm.fillStyle = "rgba(255,59,42,0.35)";
+    gm.fillRect(x - dpr / 2, R.y0, dpr, R.y1 - R.y0);
+    gm.fillRect(R.x0, y - dpr / 2, R.x1 - R.x0, dpr);
+    gm.fillStyle = "#ff3b2a";
+    gm.beginPath(); gm.arc(x, y, 4 * dpr, 0, 2 * Math.PI); gm.fill();
+  }
+}
+
+// ---------- wiring ----------
+
+$("fileIn").addEventListener("change", e => loadFile(e.target.files[0]));
+$("recBtn").addEventListener("click", toggleRecord);
+$("demoBtn").addEventListener("click", loadDemo);
+$("playSrcBtn").addEventListener("click", () => togglePlay("src"));
+$("playOutBtn").addEventListener("click", () => togglePlay("out"));
+$("wavBtn").addEventListener("click", exportWav);
+$("copyBtn").addEventListener("click", copyRecipe);
+$("applyBtn").addEventListener("click", applyRecipe);
+$("diceBtn").addEventListener("click", reroll);
+$("loop").addEventListener("change", () => {
+  const p = state.player;
+  if (p && p.which === "out") {             // re-anchor the clock before switching modes
+    p.offset = playerPos(p); p.startedAt = audio().currentTime;
+    p.node.loop = $("loop").checked;
+  }
+});
+for (const id of ["grain", "jitter", "order", "scatter", "reverse", "speed", "wow", "fade", "seed"]) {
+  $(id).addEventListener("input", onKnob);
+}
+
+function reroll() {
+  state.params.seed = Math.floor(Math.random() * 1e6);
+  $("seed").value = state.params.seed;
+  onKnob();
+}
+
+document.addEventListener("keydown", e => {
+  const tag = e.target.tagName;
+  if (tag === "TEXTAREA" || (tag === "INPUT" && e.target.type !== "range" && e.target.type !== "checkbox")) return;
+  if (e.key === " ") { e.preventDefault(); togglePlay("out"); }
+  else if (e.key === "r" || e.key === "R") reroll();
+});
+
+// Drop a sound file anywhere on the page.
+document.addEventListener("dragover", e => e.preventDefault());
+document.addEventListener("drop", e => {
+  e.preventDefault();
+  const f = e.dataTransfer.files[0];
+  if (f) loadFile(f);
+});
+
+let resizeTimer = null;
+window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(drawBases, 80); });
+
+writeControls();
+readControls();
+updateLabels();
+updateRecipe();
+drawBases();
+requestAnimationFrame(drawFrame);
+</script>
+</body>
+</html>
