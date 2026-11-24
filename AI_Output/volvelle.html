@@ -1,0 +1,1250 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VOLVELLE — a ring machine after Ramon Llull</title>
+<style>
+  :root {
+    --vellum: #efe6cf;
+    --card: #f7f1e1;
+    --ink: #2a2118;
+    --faint: #857760;
+    --rule: #cdbf9e;
+    --red: #b0281a;
+    --blue: #1f4e8c;
+    --gold: #c08a2c;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--vellum);
+    color: var(--ink);
+    font: 16px/1.45 "Palatino Linotype", "Book Antiqua", Palatino, Georgia, serif;
+  }
+  main { max-width: 1240px; margin: 0 auto; padding: 18px 20px 60px; }
+
+  header h1 {
+    margin: 0;
+    font-size: 46px;
+    font-weight: normal;
+    letter-spacing: 0.22em;
+  }
+  header h1 .v { color: var(--red); }
+  header p { margin: 2px 0 0; color: var(--faint); font-style: italic; }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--rule);
+    padding: 12px 14px 14px;
+    margin-top: 16px;
+  }
+  .card h2 {
+    margin: 0 0 8px;
+    font-size: 13px;
+    font-weight: normal;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+  }
+  .card h2 b { color: var(--red); font-weight: normal; }
+  .layout { display: grid; grid-template-columns: minmax(320px, 560px) 1fr; gap: 0 16px; }
+  @media (max-width: 920px) { .layout { grid-template-columns: 1fr; } }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+  button {
+    font: inherit;
+    font-size: 14px;
+    background: var(--ink);
+    color: var(--card);
+    border: 0;
+    padding: 5px 11px;
+    cursor: pointer;
+  }
+  button:hover { background: var(--red); }
+  button:disabled { opacity: 0.35; cursor: default; background: var(--ink); }
+  select, input[type=text] { font: inherit; font-size: 14px; }
+
+  /* ---- the wheel ---- */
+  svg#wheel { width: 100%; height: auto; display: block; touch-action: none; user-select: none; cursor: grab; }
+  svg#wheel.dragging { cursor: grabbing; }
+  .sector { stroke: #8f7f60; stroke-width: 0.7; }
+  .sector.read { fill: #f3d58a !important; }
+  .label { font-family: "Palatino Linotype", "Book Antiqua", Palatino, Georgia, serif; pointer-events: none; }
+  .label.empty { fill: #b9ab8c !important; }
+  .marker.kept { fill: var(--red); }
+  .marker.dead { fill: #b9ab8c; }
+  .marker.sel { fill: var(--gold); }
+  #wheelInfo { font-size: 13px; color: var(--faint); margin-top: 6px; }
+  #status { color: var(--red); min-height: 1.3em; font-size: 13px; margin-top: 4px; }
+
+  /* ---- spokes ---- */
+  .readings { max-height: 430px; overflow: auto; }
+  table.rd { width: 100%; border-collapse: collapse; font-size: 14px; }
+  table.rd td { padding: 2px 6px; border-bottom: 1px solid #e4d9bf; vertical-align: top; }
+  table.rd tr { cursor: pointer; }
+  table.rd tr.sel { background: #f3e2ae; }
+  table.rd td.sp { color: var(--red); text-align: right; width: 2em; }
+  table.rd td.it { color: var(--blue); white-space: nowrap; }
+  table.rd tr.dead td.tx { color: var(--faint); text-decoration: line-through; }
+  table.rd td.st { font-size: 12px; color: var(--faint); white-space: nowrap; }
+  table.rd td.st .new { color: var(--red); font-variant: small-caps; letter-spacing: 0.05em; }
+  table.rd button { padding: 0 7px; font-size: 13px; }
+
+  /* ---- what the wheel knows ---- */
+  #stats p { margin: 3px 0; font-size: 14px; }
+  #stats .pipe { font-size: 18px; color: var(--blue); }
+  #coverage { margin-top: 8px; font-size: 14px; }
+  #coverage .done { color: var(--red); }
+  #grid { margin-top: 6px; line-height: 1; }
+  .cell {
+    display: inline-block;
+    min-width: 40px;
+    padding: 2px 3px;
+    margin: 1px;
+    font-size: 12px;
+    text-align: center;
+    border: 1px solid var(--rule);
+    color: #b9ab8c;
+  }
+  .cell.seen { color: var(--ink); border-color: transparent; }
+  .cell.now { outline: 2px solid var(--red); outline-offset: -1px; }
+
+  /* ---- Llull's Table ---- */
+  #chambers { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 3px 10px; margin-top: 6px; }
+  .ch { font-size: 13px; padding: 1px 4px; }
+  .ch b { color: var(--blue); font-weight: normal; letter-spacing: 0.08em; margin-right: 6px; }
+  .ch.here { background: #f3d58a; }
+
+  /* ---- editor ---- */
+  .hint { font-size: 13px; color: var(--faint); margin: 3px 0; }
+  #presetAbout { font-size: 14px; margin: 6px 0; }
+  #template { width: 100%; }
+  .rings { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; margin-top: 10px; }
+  .ringed { border: 1px dashed var(--rule); padding: 6px; }
+  .ringed .rh { display: flex; gap: 6px; align-items: center; font-size: 13px; }
+  .ringed .rh b { color: var(--red); }
+  .ringed .rname { width: 7em; }
+  .ringed select { width: 100%; margin-top: 4px; font-size: 13px; }
+  textarea {
+    width: 100%;
+    font: 13px/1.35 "Palatino Linotype", Palatino, Georgia, serif;
+    background: var(--vellum);
+    border: 1px solid var(--rule);
+    padding: 5px;
+  }
+  .ringed textarea { height: 150px; margin-top: 4px; }
+  #kept { height: 140px; font-size: 15px; }
+  #recipe { height: 150px; font-family: "Courier New", monospace; font-size: 12px; }
+  kbd { border: 1px solid var(--faint); padding: 0 4px; font-size: 12px; }
+  details { margin-top: 8px; font-size: 14px; }
+  details summary { cursor: pointer; }
+</style>
+</head>
+<body>
+<main>
+
+<header>
+  <h1><span class="v">V</span>OLVELLE</h1>
+  <p>A ring machine for combining words, after the Fourth Figure of Ramon Llull's <i>Ars brevis</i> (1308). Turn the rings; read along the spokes.</p>
+</header>
+
+<div class="layout">
+
+<!-- ============ THE WHEEL ============ -->
+<section class="card">
+  <h2><b>1.</b> The wheel</h2>
+  <svg id="wheel" viewBox="-310 -310 620 620" aria-label="volvelle"></svg>
+  <div class="row" style="margin-top:8px">
+    <button id="spinBtn" title="space">⟳ Spin</button>
+    <button id="tourBtn">Show me every view</button>
+    <span>ring
+      <select id="activeRing"></select>
+      <button id="leftBtn" title="←">◀</button><button id="rightBtn" title="→">▶</button>
+    </span>
+  </div>
+  <div id="wheelInfo"></div>
+  <div id="status"></div>
+</section>
+
+<div>
+<!-- ============ SPOKES ============ -->
+<section class="card">
+  <h2><b>2.</b> Along the spokes</h2>
+  <p class="hint" style="margin-top:0">One reading per sector of the outer ring. Click a row (or a sector) to light up its spoke; <b>+</b> keeps the line.</p>
+  <div class="readings"><table class="rd" id="readings"></table></div>
+</section>
+
+<!-- ============ WHAT THE WHEEL KNOWS ============ -->
+<section class="card">
+  <h2><b>3.</b> What the wheel knows</h2>
+  <div id="stats"></div>
+  <div id="coverage"></div>
+  <div class="row" style="margin-top:4px"><button id="resetBtn">Start counting again</button></div>
+  <div id="grid"></div>
+</section>
+
+<!-- ============ LLULL'S TABLE ============ -->
+<section class="card" id="llull" hidden>
+  <h2><b>4.</b> Llull's Table</h2>
+  <div id="llullBody"></div>
+</section>
+</div>
+
+</div>
+
+<!-- ============ THE RINGS ============ -->
+<section class="card">
+  <h2><b>5.</b> The rings</h2>
+  <div class="row">
+    <select id="preset"></select>
+    <label><input type="checkbox" id="noRepeats"> no repeats</label>
+    <label><input type="checkbox" id="unordered"> order doesn't matter</label>
+    <label><input type="checkbox" id="showGloss"> meanings on the wheel</label>
+  </div>
+  <p id="presetAbout"></p>
+  <label class="hint" for="template">Template: <b>{1}</b> is whatever the outer ring shows on a spoke, <b>{2}</b> the next ring in, and so on.</label>
+  <input type="text" id="template" spellcheck="false">
+  <div class="rings" id="ringsEd"></div>
+  <div class="row" style="margin-top:8px">
+    <button id="addRing">+ ring</button>
+    <button id="removeRing">− ring</button>
+    <span class="hint">One item per line. A line holding just <b>-</b> is an empty slot. Ring 1 is the outer ring.</span>
+  </div>
+</section>
+
+<!-- ============ KEPT ============ -->
+<section class="card">
+  <h2><b>6.</b> Kept</h2>
+  <p class="hint" style="margin-top:0">The machine proposes; you dispose. Lines you keep land here, and you can edit them.</p>
+  <textarea id="kept" spellcheck="false"></textarea>
+  <div class="row" style="margin-top:6px"><button id="copyKept">Copy</button><button id="clearKept">Clear</button></div>
+</section>
+
+<!-- ============ RECIPE ============ -->
+<section class="card">
+  <h2><b>7.</b> Recipe</h2>
+  <p class="hint" style="margin-top:0">The rings, rules and the exact position of every ring. Copy it to share a wheel; paste one in and press Apply.</p>
+  <textarea id="recipe" spellcheck="false"></textarea>
+  <div class="row" style="margin-top:6px"><button id="copyRecipe">Copy recipe</button><button id="applyRecipe">Apply recipe</button></div>
+  <details>
+    <summary>About, keys, and fine print</summary>
+    <p>Keys: <kbd>space</kbd> spin · <kbd>1</kbd>–<kbd>6</kbd> choose a ring · <kbd>←</kbd> <kbd>→</kbd> turn it one notch · <kbd>↑</kbd> <kbd>↓</kbd> choose a spoke · <kbd>k</kbd> keep the lit spoke.</p>
+    <p><b>Llull.</b> In the Fourth Figure the outer ring is fixed and the two inner rings turn; in medieval copies they were real paper discs tied through the centre with a knotted thread, which is the knot in the hub here. Each letter B–K stands for nine things at once, one per column of his Alphabet (only some are offered here). Llull kept triples of three different letters and ignored their order: 729 readings become 84 columns, each expanded into 20 "chambers" by reading each letter either in Figure A or in Figure T.</p>
+    <p><b>Turns and views.</b> A turn is any time the wheel comes to rest in a new position. A turn is wasted if it shows nothing you haven't already seen. When the rings all have the same number of items, one position shows a whole family of readings at once (for Llull, the nine rotations of one triangle drawn across the rings), so the table splits into families and the fewest turns needed equals the number of families. For unequal rings the families overlap, and finding the true minimum is a set-cover problem; the page reports a greedy count, which is only an upper bound.</p>
+    <p><b>The other presets.</b> Harsdörffer's <i>Fünffacher Denckring der Teutschen Sprache</i> (1651) put five rings of German word-parts on paper discs; the English rings here are an imitation, not his. The exquisite-corpse wheel swaps the Surrealists' folded paper for rotation. The English renderings of Llull's terms, and especially the "predicate" forms, are my own.</p>
+    <p>Everything runs in this page; nothing is uploaded.</p>
+  </details>
+</section>
+
+</main>
+
+<!-- =====================================================================
+     DATA: presets.
+     ===================================================================== -->
+<script id="data">
+"use strict";
+
+const LLULL_LETTERS = ["B", "C", "D", "E", "F", "G", "H", "I", "K"];
+
+// Columns of the Ars brevis Alphabet (plus one English convenience column).
+const LLULL_COLUMNS = {
+  A:  { label: "Figure A: absolute principles",
+        values: ["goodness", "greatness", "eternity", "power", "wisdom", "will", "virtue", "truth", "glory"] },
+  Ap: { label: "Figure A as predicates (English)",
+        values: ["good", "great", "eternal", "powerful", "wise", "willed", "virtuous", "true", "glorious"] },
+  T:  { label: "Figure T: relative principles",
+        values: ["difference", "concordance", "contrariety", "beginning", "middle", "end", "majority", "equality", "minority"] },
+  Q:  { label: "Questions",
+        values: ["whether?", "what?", "of what?", "why?", "how much?", "of what kind?", "when?", "where?", "how? with what?"] },
+  S:  { label: "Subjects",
+        values: ["God", "angel", "heaven", "man", "the imaginative", "the sensitive", "the vegetative", "the elementative", "the instrumentative"] },
+  V:  { label: "Virtues",
+        values: ["justice", "prudence", "fortitude", "temperance", "faith", "hope", "charity", "patience", "pity"] },
+  X:  { label: "Vices",
+        values: ["avarice", "gluttony", "lust", "pride", "accidie", "envy", "anger", "lying", "inconstancy"] },
+};
+
+const PRESETS = {
+  llull: {
+    title: "Llull · the Fourth Figure (Ars brevis, 1308)",
+    about: "Three rings lettered B–K. The outer ring is pinned; the two inner rings turn. Every letter means six things at once: choose which column each ring is read through. Llull kept only triples of three different letters and ignored their order, which squeezes 729 readings into the 84 columns of his Table. Can you see all 84 in as few turns as the wheel allows?",
+    rings: [
+      { name: "outer",  items: LLULL_LETTERS, column: "A", fixed: true },
+      { name: "middle", items: LLULL_LETTERS, column: "A", fixed: false },
+      { name: "inner",  items: LLULL_LETTERS, column: "T", fixed: false },
+    ],
+    rules: { noRepeats: true, unordered: true },
+    template: "{1} · {2} · {3}",
+    columns: LLULL_COLUMNS, alphabet: LLULL_LETTERS, llull: true,
+  },
+  pairs: {
+    title: "Llull · Figure A as a two-ring wheel",
+    about: "Every spoke is a proposition of the kind 'Goodness is great'. For Llull all 72 are true of God, and true in both directions; in a creature many of them fail. 'No repeats' throws out the nine tautologies ('Goodness is good'): untick it to let them back in.",
+    rings: [
+      { name: "subject",   items: LLULL_LETTERS, column: "A",  fixed: true },
+      { name: "predicate", items: LLULL_LETTERS, column: "Ap", fixed: false },
+    ],
+    rules: { noRepeats: true, unordered: false },
+    template: "{1} is {2}.",
+    columns: LLULL_COLUMNS, alphabet: LLULL_LETTERS, llull: false,
+  },
+  words: {
+    title: "Word wheel, after Harsdörffer's Denckring (1651)",
+    about: "Five rings of English word-parts: prefix, onset, vowel, ending, suffix. Harsdörffer did this for German with five paper discs, claiming they held the whole language; they could make 97,209,600 combinations. These rings are an English imitation, not his. Most of what they make are words English hasn't got around to yet.",
+    rings: [
+      { name: "prefix", items: ["", "un", "re", "out", "over", "under", "fore", "mis", "be", "with"], column: "", fixed: false },
+      { name: "onset",  items: ["b", "bl", "br", "ch", "cl", "cr", "d", "dr", "f", "fl", "gl", "gr", "l", "m", "pl", "s", "sh", "sl", "st", "str", "sw", "th", "tr", "w"], column: "", fixed: false },
+      { name: "vowel",  items: ["a", "e", "i", "o", "u", "ea", "ee", "oo", "ou", "ai", "oa", "ie"], column: "", fixed: false },
+      { name: "ending", items: ["ck", "nd", "ng", "nk", "mp", "st", "sh", "ll", "rm", "rn", "t", "p", "g", "th"], column: "", fixed: false },
+      { name: "suffix", items: ["", "ing", "ed", "er", "ness", "ly", "ful", "less", "ish", "ling"], column: "", fixed: false },
+    ],
+    rules: { noRepeats: false, unordered: false },
+    template: "{1}{2}{3}{4}{5}",
+    columns: {}, alphabet: [], llull: false,
+  },
+  corpse: {
+    title: "Exquisite wheel (cadavre exquis, c. 1925)",
+    about: "The Surrealist game with the folded paper replaced by rotation: five rings of sentence parts in the slots adjective–noun–verb–adjective–noun. At rest, the first spoke reads the sentence that named the game. Grammar holds every reading together, whatever the rings say.",
+    rings: [
+      { name: "adjective", items: ["exquisite", "drowsy", "electric", "borrowed", "paper", "unanswered", "crooked", "velvet", "municipal", "last", "invisible", "salted"], column: "", fixed: true },
+      { name: "noun", items: ["corpse", "telephone", "bishop", "staircase", "oyster", "clock", "lighthouse", "umbrella", "accountant", "swan", "rumour", "glove"], column: "", fixed: false },
+      { name: "verb", items: ["will drink", "devours", "forgets", "marries", "counts", "unbuttons", "swallows", "interrogates", "carries", "sings to", "dismantles", "inherits"], column: "", fixed: false },
+      { name: "adjective", items: ["new", "sleeping", "unpaid", "transparent", "nervous", "folded", "sacred", "wet", "mechanical", "distant", "silent", "forbidden"], column: "", fixed: false },
+      { name: "noun", items: ["wine", "sewing machine", "moon", "ledger", "piano", "harbour", "sermon", "typewriter", "orchard", "ladder", "alphabet", "dissecting table"], column: "", fixed: false },
+    ],
+    rules: { noRepeats: false, unordered: false },
+    template: "The {1} {2} {3} the {4} {5}.",
+    columns: {}, alphabet: [], llull: false,
+  },
+  blank: {
+    title: "Blank · three rings of your own",
+    about: "Three rings of plain words, all free to turn. Replace them with anything: names, lines of a poem, the contents of your fridge.",
+    rings: [
+      { name: "one",   items: ["salt", "iron", "glass", "ash", "bread", "wire", "milk", "rain"], column: "", fixed: false },
+      { name: "two",   items: ["house", "map", "bell", "knife", "river", "coat", "song", "door"], column: "", fixed: false },
+      { name: "three", items: ["sleeps", "burns", "waits", "opens", "sinks", "counts", "sings", "breaks"], column: "", fixed: false },
+    ],
+    rules: { noRepeats: false, unordered: false },
+    template: "the {1} {2} {3}",
+    columns: {}, alphabet: [], llull: false,
+  },
+};
+</script>
+
+<!-- =====================================================================
+     CORE: pure functions, no DOM.
+     ===================================================================== -->
+<script id="core">
+"use strict";
+
+const SEP = "\u0001";
+
+function mod(a, n) { return ((a % n) + n) % n; }
+
+// Geometry of a volvelle, in turns (1 turn = 360°), clockwise from the top.
+// Item i of a ring with n items, turned r notches, is centred at (i + r) / n.
+// Spoke j is the centre of outer sector j, at (j + r0) / n0.
+// The item read on spoke j is the one whose sector contains that angle, i.e.
+// round(angle * n - r). Done in integers so ties always go the same way:
+//   angle*n - r + 1/2 = (2(j + r0)n - 2 r n0 + n0) / (2 n0).
+function itemAt(n, r, n0, r0, j) {
+  const num = 2 * (j + r0) * n - 2 * r * n0 + n0;
+  return mod(Math.floor(num / (2 * n0)), n);
+}
+
+// Indices of the items read along spoke j, one per ring.
+function readSpoke(sizes, rots, j) {
+  return sizes.map((n, k) => itemAt(n, rots[k], sizes[0], rots[0], j));
+}
+
+// For canonical ordering: an item's rank is its position on the outer ring
+// (so Llull's letters sort B, C, D, ...); items not on the outer ring go last.
+function makeRanker(items) {
+  const rank = new Map();
+  items.forEach((t, i) => { if (!rank.has(t)) rank.set(t, i); });
+  return t => (rank.has(t) ? rank.get(t) : Infinity);
+}
+function compareBy(rankOf) {
+  return (a, b) => (rankOf(a) - rankOf(b)) || (a < b ? -1 : a > b ? 1 : 0);
+}
+
+// Apply the rules to one reading.
+//   noRepeats: discard it if the same (non-empty) item appears twice.
+//   unordered: treat it as a set, written in canonical order.
+// The key identifies the reading up to the rules (BCD, DBC, CDB share a key).
+function judge(rings, idx, rules, cmp) {
+  const items = idx.map((i, k) => rings[k].items[i]);
+  if (rules.noRepeats) {
+    const seen = new Set();
+    for (const t of items) {
+      if (t === "") continue;
+      if (seen.has(t)) return { items: items, kept: false, reason: "repeat" };
+      seen.add(t);
+    }
+  }
+  const canon = rules.unordered ? items.slice().sort(cmp) : items;
+  return { items: items, kept: true, canon: canon, key: canon.join(SEP) };
+}
+
+// Turn the free rings through every position and record what each shows.
+// A "view" is the set of (kept) readings visible at one position. Pinned rings
+// stay where they are. Returns null fields when the space is too big to survey.
+function survey(rings, rots, rules, maxReadings) {
+  const sizes = rings.map(r => r.items.length);
+  const n0 = sizes[0];
+  const movable = [];
+  let settings = 1;
+  rings.forEach((r, k) => { if (!r.fixed) { movable.push(k); settings *= sizes[k]; } });
+  const result = {
+    sizes: sizes, settings: settings, readings: settings * n0,
+    combos: sizes.reduce((a, b) => a * b, 1),
+    outerFixedOthersFree: rings[0].fixed && rings.slice(1).every(r => !r.fixed),
+    allFree: rings.every(r => !r.fixed),
+    tooBig: settings * n0 > maxReadings,
+  };
+  if (result.tooBig) return result;
+
+  const cmp = compareBy(makeRanker(rings[0].items));
+  const cur = rots.slice();
+  for (const k of movable) cur[k] = 0;
+  const table = new Map();          // key -> canonical items
+  const views = new Map();          // view signature -> view
+  let repeats = 0, keptReadings = 0, dead = 0;
+
+  for (let s = 0; s < settings; s++) {
+    const keys = new Set();
+    for (let j = 0; j < n0; j++) {
+      const v = judge(rings, readSpoke(sizes, cur, j), rules, cmp);
+      if (!v.kept) { repeats++; continue; }
+      keptReadings++;
+      keys.add(v.key);
+      if (!table.has(v.key)) table.set(v.key, v.canon);
+    }
+    if (keys.size === 0) dead++;
+    else {
+      const list = Array.from(keys).sort();
+      const sig = list.join("\u0002");
+      let view = views.get(sig);
+      if (!view) { view = { keys: list, rots: cur.slice(), settings: 0 }; views.set(sig, view); }
+      view.settings++;
+    }
+    // odometer: advance the free rings like the digits of a counter
+    for (const k of movable) { cur[k]++; if (cur[k] < sizes[k]) break; cur[k] = 0; }
+  }
+
+  const viewList = Array.from(views.values());
+  let total = 0;
+  for (const v of viewList) total += v.keys.length;
+  const disjoint = total === table.size;   // views never share a reading
+  const viewOf = new Map();
+  viewList.forEach((v, i) => v.keys.forEach(key => { if (!viewOf.has(key)) viewOf.set(key, i); }));
+
+  let cover = null;                        // indices of views that together show everything
+  if (disjoint) cover = viewList.map((v, i) => i);
+  else if (viewList.length <= 3000) cover = greedyCover(viewList, table.size);
+
+  // Table in canonical order (only worth sorting when it's small enough to draw):
+  // compare item by item, using the order of the ring the item came from.
+  let tableKeys = Array.from(table.keys());
+  if (tableKeys.length <= 5000) {
+    const cmps = rings.map(r => compareBy(makeRanker(r.items)));
+    const tupleCmp = (A, B) => {
+      for (let k = 0; k < A.length; k++) {
+        const d = cmps[Math.min(k, cmps.length - 1)](A[k], B[k]);
+        if (d) return d;
+      }
+      return 0;
+    };
+    tableKeys.sort((a, b) => tupleCmp(table.get(a), table.get(b)));
+  }
+
+  return Object.assign(result, {
+    table: tableKeys, canonOf: table, views: viewList, viewOf: viewOf, disjoint: disjoint,
+    cover: cover, repeats: repeats, keptReadings: keptReadings, dead: dead,
+  });
+}
+
+// Greedy set cover: repeatedly take the view that shows the most unseen readings.
+// Gives an upper bound on the fewest turns, not necessarily the minimum.
+function greedyCover(views, total) {
+  const covered = new Set(), chosen = [];
+  while (covered.size < total) {
+    let best = -1, gain = 0;
+    views.forEach((v, i) => {
+      let g = 0;
+      for (const k of v.keys) if (!covered.has(k)) g++;
+      if (g > gain) { gain = g; best = i; }
+    });
+    if (best < 0) break;
+    chosen.push(best);
+    for (const k of views[best].keys) covered.add(k);
+  }
+  return chosen;
+}
+
+// All k-element subsets of arr, in lexicographic order.
+function combinations(arr, k) {
+  const out = [];
+  const pick = (start, acc) => {
+    if (acc.length === k) { out.push(acc.slice()); return; }
+    for (let i = start; i < arr.length; i++) { acc.push(arr[i]); pick(i + 1, acc); acc.pop(); }
+  };
+  pick(0, []);
+  return out;
+}
+
+// The 20 chambers of a column of Llull's Table. Each of the three letters can
+// be read in Figure A (written before T) or in Figure T (written after T);
+// a chamber picks 3 of these 6 readings: C(6,3) = 20. Ordered as in the
+// Ars brevis: BCDT, BCTB, BCTC, BCTD, BDTB, ..., TBCD.
+function llullChambers(letters) {
+  const out = [];
+  for (let k = 3; k >= 0; k--) {
+    for (const before of combinations(letters, k)) {
+      for (const after of combinations(letters, 3 - k)) {
+        out.push({ before: before, after: after, code: before.join("") + "T" + after.join("") });
+      }
+    }
+  }
+  return out;
+}
+
+// Fill {1}, {2}, ... with the readings of rings 1, 2, ...
+function renderTemplate(tpl, parts) {
+  return tpl.replace(/\{(\d+)\}/g, (m, d) => {
+    const k = +d - 1;
+    return k >= 0 && k < parts.length ? parts[k] : m;
+  }).replace(/\s+/g, " ").trim();
+}
+
+function fmt(n) { return n.toLocaleString("en-US"); }
+</script>
+
+<!-- =====================================================================
+     APP: the page, the wheel, the drawing.
+     ===================================================================== -->
+<script id="app">
+"use strict";
+
+const $ = id => document.getElementById(id);
+const NS = "http://www.w3.org/2000/svg";
+const R_OUT = 286, R_HUB = 58, MAX_READINGS = 400000, GRID_MAX = 600;
+
+const state = {
+  presetKey: "llull",
+  rings: [], rot: [], rules: { noRepeats: true, unordered: true },
+  template: "", showGloss: false,
+  columns: {}, alphabet: [], llull: false,
+  cmp: null, survey: null, readings: [],
+  spoke: 0, active: 1,
+  seen: new Set(), newKeys: new Set(), turns: 0, wasted: 0, complete: false,
+  lastIntKey: null, lastSettleKey: null,
+  anim: null, drag: null, touring: false,
+};
+
+function status(msg) { $("status").textContent = msg || ""; }
+function esc(s) {
+  return String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+}
+function sizes() { return state.rings.map(r => r.items.length); }
+function intRots() { return state.rot.map(r => Math.round(r)); }
+function el(tag, attrs, parent) {
+  const e = document.createElementNS(NS, tag);
+  for (const a in attrs) e.setAttribute(a, attrs[a]);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+
+// What a ring's item means under the column the ring is read through.
+function gloss(k, item) {
+  const ring = state.rings[k], col = state.columns[ring.column];
+  if (col) {
+    const i = state.alphabet.indexOf(item);
+    if (i >= 0) return col.values[i];
+  }
+  return item;
+}
+
+// Short label for a reading: "BCD" for single-letter alphabets, else spaced.
+function shortLabel(items) {
+  const single = state.rings.every(r => r.items.every(t => t.length <= 1));
+  return single ? items.join("") : items.map(t => t === "" ? "·" : t).join(" ");
+}
+
+// ---------- presets and rebuilding ----------
+
+function loadPreset(key) {
+  const p = PRESETS[key];
+  state.presetKey = key;
+  state.rings = p.rings.map(r => ({ name: r.name, items: r.items.slice(), column: r.column, fixed: r.fixed }));
+  state.rot = state.rings.map(() => 0);
+  state.rules = Object.assign({}, p.rules);
+  state.template = p.template;
+  state.columns = p.columns;
+  state.alphabet = p.alphabet;
+  state.llull = p.llull;
+  state.showGloss = false;
+  state.spoke = 0;
+  state.active = state.rings.length > 1 ? 1 : 0;
+  $("presetAbout").textContent = p.about;
+  writeControls();
+  buildEditor();
+  rebuild();
+}
+
+function writeControls() {
+  $("preset").value = state.presetKey;
+  $("noRepeats").checked = state.rules.noRepeats;
+  $("unordered").checked = state.rules.unordered;
+  $("showGloss").checked = state.showGloss;
+  $("showGloss").disabled = !state.alphabet.length;
+  $("template").value = state.template;
+}
+
+// Everything that depends on the rings or the rules.
+function rebuild() {
+  stopTour();
+  cancelAnim();
+  const sz = sizes();
+  state.rot = state.rot.map((r, k) => mod(Math.round(r), sz[k]));
+  state.spoke = Math.min(state.spoke, sz[0] - 1);
+  state.active = Math.min(state.active, sz.length - 1);
+  state.cmp = compareBy(makeRanker(state.rings[0].items));
+  state.survey = survey(state.rings, intRots(), state.rules, MAX_READINGS);
+  buildWheel();
+  buildActiveSelect();
+  buildGrid();
+  state.lastIntKey = null;
+  updateWheel(true);
+  startCounting();
+  renderStats();
+  updateRecipe();
+}
+
+// ---------- the wheel ----------
+
+const wheel = { fillGroups: [], textGroups: [], sectors: [], spokeGroup: null, selLine: null, markers: [], activeRing: null };
+
+function ringRadii(k) {
+  const w = (R_OUT - R_HUB) / state.rings.length;
+  return { outer: R_OUT - k * w, inner: R_OUT - (k + 1) * w, w: w };
+}
+
+// Annular sector between radii r1 < r2 and angles a0 < a1 (in turns).
+function sectorPath(r1, r2, a0, a1) {
+  const p = (r, a) => (r * Math.sin(2 * Math.PI * a)).toFixed(2) + "," + (-r * Math.cos(2 * Math.PI * a)).toFixed(2);
+  const large = a1 - a0 > 0.5 ? 1 : 0;
+  return "M" + p(r2, a0) + " A" + r2 + "," + r2 + " 0 " + large + " 1 " + p(r2, a1) +
+         " L" + p(r1, a1) + " A" + r1 + "," + r1 + " 0 " + large + " 0 " + p(r1, a0) + " Z";
+}
+
+function buildWheel() {
+  const svg = $("wheel");
+  svg.innerHTML = "";
+  const sz = sizes();
+  wheel.fillGroups = []; wheel.textGroups = []; wheel.sectors = []; wheel.markers = [];
+
+  // Under everything: the rim.
+  el("circle", { r: R_OUT + 14, fill: "#e5d6b4", stroke: "#8f7f60", "stroke-width": 1 }, svg);
+
+  // Layer 1: sector fills, one group per ring.
+  const fills = el("g", {}, svg);
+  state.rings.forEach((ring, k) => {
+    const { outer, inner } = ringRadii(k);
+    const g = el("g", {}, fills);
+    const tones = k % 2 ? ["#eadfc2", "#e2d4b3"] : ["#f6eedb", "#efe4c9"];
+    wheel.sectors.push(ring.items.map((t, i) => {
+      const a0 = (i - 0.5) / sz[k], a1 = (i + 0.5) / sz[k];
+      return el("path", { d: sectorPath(inner, outer, a0, a1), class: "sector", fill: tones[i % 2] }, g);
+    }));
+    wheel.fillGroups.push(g);
+  });
+
+  // Layer 2: the lit spoke and the spoke markers, turning with the outer ring.
+  wheel.spokeGroup = el("g", {}, svg);
+  wheel.selLine = el("line", { x1: 0, y1: -R_HUB, x2: 0, y2: -R_OUT, stroke: "#c08a2c", "stroke-width": 3, opacity: 0.55 }, wheel.spokeGroup);
+  for (let j = 0; j < sz[0]; j++) {
+    const g = el("g", { transform: "rotate(" + (360 * j / sz[0]) + ")" }, wheel.spokeGroup);
+    wheel.markers.push(el("path", { d: "M0," + (-R_OUT - 1) + " L-6," + (-R_OUT - 13) + " L6," + (-R_OUT - 13) + " Z", class: "marker" }, g));
+  }
+
+  // Layer 3: labels, one group per ring, turning with its fills.
+  const texts = el("g", {}, svg);
+  state.rings.forEach((ring, k) => {
+    const { outer, inner, w } = ringRadii(k);
+    const mid = (outer + inner) / 2;
+    const g = el("g", {}, texts);
+    ring.items.forEach((item, i) => {
+      const label = item === "" ? "–" : (state.showGloss ? gloss(k, item) : item);
+      const arc = 2 * Math.PI * mid / sz[k];
+      const fs = Math.max(6, Math.min(w * 0.5, 0.95 * arc / (label.length * 0.58), 34));
+      const t = el("text", {
+        class: "label" + (item === "" ? " empty" : ""),
+        transform: "rotate(" + (360 * i / sz[k]) + ") translate(0," + (-mid).toFixed(1) + ")",
+        "text-anchor": "middle", "dominant-baseline": "central",
+        "font-size": fs.toFixed(1), fill: i % 2 ? "#1f4e8c" : "#b0281a",
+      }, g);
+      t.textContent = label;
+    });
+    wheel.textGroups.push(g);
+  });
+
+  // The active ring: a dashed circle through its middle.
+  wheel.activeRing = el("circle", { r: 0, fill: "none", stroke: "#b0281a", "stroke-width": 1, "stroke-dasharray": "3 4", opacity: 0.6 }, svg);
+
+  // The hub, with the knotted thread that held Llull's paper discs together.
+  el("circle", { r: R_HUB, fill: "#e5d6b4", stroke: "#8f7f60", "stroke-width": 1 }, svg);
+  el("path", { d: "M-22,14 C-8,2 -10,-8 0,0 C10,8 8,-6 24,-16", fill: "none", stroke: "#7a5a2e", "stroke-width": 2.2, "stroke-linecap": "round" }, svg);
+  el("circle", { r: 6, fill: "#7a5a2e" }, svg);
+}
+
+// Move the rings to state.rot; recompute the readings if a ring changed notch.
+function updateWheel(force) {
+  const sz = sizes();
+  state.rings.forEach((r, k) => {
+    const t = "rotate(" + (state.rot[k] * 360 / sz[k]).toFixed(3) + ")";
+    wheel.fillGroups[k].setAttribute("transform", t);
+    wheel.textGroups[k].setAttribute("transform", t);
+  });
+  wheel.spokeGroup.setAttribute("transform", "rotate(" + (state.rot[0] * 360 / sz[0]).toFixed(3) + ")");
+  const { outer, inner } = ringRadii(state.active);
+  wheel.activeRing.setAttribute("r", ((outer + inner) / 2).toFixed(1));
+
+  const key = intRots().join(",");
+  if (!force && key === state.lastIntKey) return;
+  state.lastIntKey = key;
+  state.readings = readAll();
+  paint();
+}
+
+function readAll() {
+  const sz = sizes(), rots = intRots(), out = [];
+  for (let j = 0; j < sz[0]; j++) {
+    const idx = readSpoke(sz, rots, j);
+    const v = judge(state.rings, idx, state.rules, state.cmp);
+    v.idx = idx;
+    v.text = renderTemplate(state.template, v.items.map((t, k) => gloss(k, t)));
+    out.push(v);
+  }
+  return out;
+}
+
+// ---------- painting the panels ----------
+
+function paint() {
+  paintWheelHighlights();
+  paintReadings();
+  paintCoverage();
+  paintLlull();
+  paintInfo();
+}
+
+function paintWheelHighlights() {
+  for (const ring of wheel.sectors) for (const s of ring) s.classList.remove("read");
+  const v = state.readings[state.spoke];
+  if (v) v.idx.forEach((i, k) => wheel.sectors[k][i].classList.add("read"));
+  state.readings.forEach((r, j) => {
+    wheel.markers[j].setAttribute("class", "marker " + (j === state.spoke ? "sel" : r.kept ? "kept" : "dead"));
+  });
+  wheel.selLine.setAttribute("transform", "rotate(" + (360 * state.spoke / sizes()[0]) + ")");
+}
+
+function paintReadings() {
+  const rows = state.readings.map((v, j) => {
+    let st;
+    if (!v.kept) st = v.reason;
+    else {
+      const changed = state.rules.unordered && v.canon.some((t, k) => t !== v.items[k]);
+      st = (changed ? "= " + esc(shortLabel(v.canon)) : "") +
+           (state.newKeys.has(v.key) ? ' <span class="new">new</span>' : "");
+    }
+    return '<tr data-j="' + j + '" class="' + (j === state.spoke ? "sel " : "") + (v.kept ? "" : "dead") + '">' +
+      '<td class="sp">' + (j + 1) + '</td>' +
+      '<td class="it">' + esc(v.items.map(t => t === "" ? "·" : t).join(" ")) + '</td>' +
+      '<td class="tx">' + esc(v.text) + '</td>' +
+      '<td class="st">' + st + '</td>' +
+      '<td><button data-keep="' + j + '" title="keep (k)">+</button></td></tr>';
+  });
+  $("readings").innerHTML = rows.join("");
+}
+
+function paintInfo() {
+  const parts = state.rings.map((r, k) => (k + 1) + ": " + Math.round(mod(state.rot[k], sizes()[k])) + (r.fixed ? " (pinned)" : ""));
+  $("wheelInfo").textContent = "Notches turned · " + parts.join(" · ") + ". Drag a ring to turn it; click a sector to light its spoke.";
+}
+
+function renderStats() {
+  const S = state.survey, lines = [];
+  const ringsTxt = S.sizes.join(" × ");
+  const pinned = state.rings.map((r, k) => r.fixed ? k + 1 : null).filter(x => x !== null);
+  lines.push("<p>Rings: " + ringsTxt + (pinned.length ? " (ring " + pinned.join(", ") + " pinned)" : "") + ".</p>");
+  lines.push("<p>Positions of the wheel: <b>" + fmt(S.settings) + "</b>. Each shows " + S.sizes[0] +
+             " readings, one per outer sector, so " + fmt(S.readings) + " readings in all.</p>");
+  if (S.outerFixedOthersFree) {
+    lines.push("<p>There are " + fmt(S.combos) + " possible combinations, and every one of them turns up exactly once: no reading is ever shown twice, and none is missing.</p>");
+  } else if (S.allFree) {
+    lines.push("<p>There are " + fmt(S.combos) + " possible combinations; with every ring free, each turns up " + S.sizes[0] +
+               " times, once for each position of the outer ring.</p>");
+  } else {
+    lines.push("<p>Possible combinations: " + fmt(S.combos) + ".</p>");
+  }
+
+  if (S.tooBig) {
+    lines.push("<p>That is too many readings to survey in a browser tab, so the families of views below aren't computed. You can still turn, spin, and keep.</p>");
+    $("stats").innerHTML = lines.join("");
+    return;
+  }
+
+  // The rules as a pipeline: readings -> without repeats -> distinct.
+  const pipe = [fmt(S.readings)];
+  const notes = [];
+  if (state.rules.noRepeats) { pipe.push(fmt(S.keptReadings)); notes.push(fmt(S.repeats) + " thrown out for repeating an item"); }
+  if (state.rules.unordered) { pipe.push(fmt(S.table.length)); notes.push(fmt(S.keptReadings - S.table.length) + " folded into a reordering of another"); }
+  if (pipe.length > 1) {
+    lines.push('<p class="pipe">' + pipe.join(" → ") + "</p><p>" + notes.join("; ") + ". What survives: <b>" +
+               fmt(S.table.length) + "</b> distinct readings.</p>");
+  } else {
+    lines.push("<p>No rules: every one of the <b>" + fmt(S.table.length) + "</b> distinct combinations counts.</p>");
+  }
+
+  const V = S.views.length;
+  if (S.disjoint) {
+    lines.push("<p>One position shows exactly one <i>view</i>, and the views never overlap: the wheel splits the table into <b>" + fmt(V) +
+               "</b> families. So the fewest turns that can show you everything is " + fmt(V) + ".</p>");
+  } else if (S.cover) {
+    lines.push("<p>The " + fmt(V) + " views overlap, so the fewest turns is a set-cover problem. A greedy search manages it in <b>" +
+               fmt(S.cover.length) + "</b> turns; that's an upper bound, not necessarily the minimum.</p>");
+  } else {
+    lines.push("<p>The " + fmt(V) + " views overlap, and there are too many to search for a short tour.</p>");
+  }
+  if (S.dead) lines.push("<p>" + fmt(S.dead) + " of the " + fmt(S.settings) + " positions show nothing that survives the rules.</p>");
+  $("stats").innerHTML = lines.join("");
+}
+
+// ---------- coverage ----------
+
+const grid = { cells: new Map() };
+
+function buildGrid() {
+  const box = $("grid"), S = state.survey;
+  box.innerHTML = "";
+  grid.cells = new Map();
+  if (S.tooBig || S.table.length > GRID_MAX) return;
+  for (const key of S.table) {
+    const c = document.createElement("span");
+    c.className = "cell";
+    c.textContent = shortLabel(S.canonOf.get(key));
+    if (S.disjoint) c.dataset.hue = Math.round((S.viewOf.get(key) * 137.508) % 360);
+    box.appendChild(c);
+    grid.cells.set(key, c);
+  }
+}
+
+function startCounting() {
+  state.seen = new Set();
+  state.turns = 0;
+  state.wasted = 0;
+  state.complete = false;
+  state.lastSettleKey = intRots().join(",");
+  record(true);
+}
+
+// Count what the wheel shows where it has come to rest.
+function record(initial) {
+  state.newKeys = new Set();
+  for (const v of state.readings) {
+    if (v.kept && !state.seen.has(v.key)) { state.seen.add(v.key); state.newKeys.add(v.key); }
+  }
+  if (!initial && state.newKeys.size === 0) state.wasted++;
+  paint();
+}
+
+function settle() {
+  const sz = sizes();
+  state.rot = state.rot.map((r, k) => mod(Math.round(r), sz[k]));
+  updateWheel(true);
+  const key = state.lastIntKey;
+  if (key === state.lastSettleKey) return;
+  state.lastSettleKey = key;
+  state.turns++;
+  record(false);
+  updateRecipe();
+}
+
+function paintCoverage() {
+  const S = state.survey, box = $("coverage");
+  const nowKeys = new Set(state.readings.filter(v => v.kept).map(v => v.key));
+  for (const [key, c] of grid.cells) {
+    const seen = state.seen.has(key);
+    c.classList.toggle("seen", seen);
+    c.classList.toggle("now", nowKeys.has(key));
+    c.style.background = seen ? (c.dataset.hue !== undefined ? "hsl(" + c.dataset.hue + ",55%,80%)" : "#e8d6a6") : "";
+  }
+  let html = "Seen <b>" + fmt(state.seen.size) + "</b>" + (S.tooBig ? "" : " of " + fmt(S.table.length)) +
+             " · turns " + state.turns + " · wasted " + state.wasted + ".";
+  if (!S.tooBig && S.table.length > 0 && state.seen.size === S.table.length) {
+    if (!state.complete) { state.complete = true; state.completeTurns = state.turns; state.completeWasted = state.wasted; }
+    const T = state.completeTurns, W = state.completeWasted;
+    html += '<br><span class="done">The whole table, in ' + T + " turn" + (T === 1 ? "" : "s") +
+            (W === 0 ? ": not one of them wasted." : ", " + W + " of them wasted.") +
+            (S.disjoint ? " The wheel has " + fmt(S.views.length) + " views; a perfect run lands on each one once." : "") + "</span>";
+  }
+  box.innerHTML = html;
+}
+
+// ---------- Llull's Table ----------
+
+function paintLlull() {
+  const box = $("llull");
+  box.hidden = !state.llull;
+  if (!state.llull) return;
+  const body = $("llullBody"), v = state.readings[state.spoke];
+  const A = state.alphabet;
+  const ok = v && v.items.length === 3 && v.items.every(t => A.indexOf(t) >= 0) && new Set(v.items).size === 3;
+  if (!ok) {
+    body.innerHTML = '<p class="hint">The lit spoke repeats a letter, so it has no column in Llull\'s Table. Light a spoke with three different letters.</p>';
+    return;
+  }
+  const letters = v.items.slice().sort((a, b) => A.indexOf(a) - A.indexOf(b));
+  const number = combinations(A, 3).findIndex(c => c.join("") === letters.join("")) + 1;
+  const col = (id, ls) => ls.map(t => state.columns[id].values[A.indexOf(t)]);
+
+  // If every ring reads through Figure A or Figure T, the spoke *is* one chamber.
+  let here = null;
+  if (state.rings.every(r => r.column === "A" || r.column === "T")) {
+    const before = v.items.filter((t, k) => state.rings[k].column === "A").sort((a, b) => A.indexOf(a) - A.indexOf(b));
+    const after = v.items.filter((t, k) => state.rings[k].column === "T").sort((a, b) => A.indexOf(a) - A.indexOf(b));
+    here = before.join("") + "T" + after.join("");
+  }
+
+  const chambers = llullChambers(letters).map(c => {
+    const a = col("A", c.before).join(", "), t = col("T", c.after).join(", ");
+    return '<div class="ch' + (c.code === here ? " here" : "") + '"><b>' + c.code + "</b>" +
+           esc(a) + (a && t ? " | " : "") + esc(t) + "</div>";
+  });
+  body.innerHTML =
+    "<p style='margin-top:0'>The lit spoke belongs to column <b>" + letters.join("") + "</b>, number " + number +
+    " of the 84. Letters written before <b>T</b> are read in Figure A, letters after it in Figure T: each chamber picks 3 of the 6 readings, and there are C(6,3) = 20 ways to do that." +
+    (here ? " The chamber your rings are reading is lit." : " (Read the rings through Figure A or T to see which chamber the spoke is.)") + "</p>" +
+    '<div id="chambers">' + chambers.join("") + "</div>" +
+    '<p class="hint">Llull also asks each column under the questions of its letters: ' +
+    esc(col("Q", letters).join(" / ")) + ". Hence his count of 84 × 3 = 252.</p>";
+}
+
+// ---------- motion ----------
+
+function cancelAnim() {
+  if (state.anim) cancelAnimationFrame(state.anim);
+  state.anim = null;
+}
+
+function animateTo(targets, ms, done) {
+  cancelAnim();
+  const from = state.rot.slice(), t0 = performance.now();
+  function step(now) {
+    const u = Math.min(1, (now - t0) / ms), e = 1 - Math.pow(1 - u, 3);
+    state.rot = from.map((f, k) => f + (targets[k] - f) * e);
+    updateWheel(false);
+    if (u < 1) state.anim = requestAnimationFrame(step);
+    else { state.anim = null; state.rot = targets.slice(); if (done) done(); }
+  }
+  state.anim = requestAnimationFrame(step);
+}
+
+function stepRing(k, d) {
+  if (state.rings[k].fixed) { status("Ring " + (k + 1) + " is pinned. Unpin it below to turn it."); return; }
+  stopTour();
+  const targets = state.rot.map(Math.round);
+  targets[k] += d;
+  animateTo(targets, 160, settle);
+}
+
+function spin() {
+  stopTour();
+  if (state.rings.every(r => r.fixed)) { status("Every ring is pinned."); return; }
+  const targets = state.rot.map((r, k) => {
+    if (state.rings[k].fixed) return Math.round(r);
+    const n = state.rings[k].items.length;
+    const dir = k % 2 ? -1 : 1;
+    return Math.round(r) + dir * (n * (1 + Math.floor(Math.random() * 2)) + Math.floor(Math.random() * n));
+  });
+  status("");
+  animateTo(targets, 1400, settle);
+}
+
+// The shortest way round from one notch to another.
+function nearest(cur, target, n) {
+  let d = mod(target - Math.round(cur), n);
+  if (d > n / 2) d -= n;
+  return Math.round(cur) + d;
+}
+
+// Visit one position per view not yet seen.
+function tour() {
+  const S = state.survey;
+  if (S.tooBig || !S.cover) { status("This wheel is too big to plan a tour."); return; }
+  const todo = S.cover.filter(i => S.views[i].keys.some(k => !state.seen.has(k)));
+  if (!todo.length) { status("You've already seen everything."); return; }
+  if (todo.length > 300) { status("That would take " + fmt(todo.length) + " turns. Not today."); return; }
+  status("");
+  state.touring = true;
+  $("tourBtn").textContent = "Stop";
+  let i = 0;
+  const next = () => {
+    if (!state.touring) return;
+    if (i >= todo.length) { stopTour(); return; }
+    const view = S.views[todo[i++]];
+    const targets = state.rot.map((r, k) => state.rings[k].fixed ? Math.round(r) : nearest(r, view.rots[k], sizes()[k]));
+    animateTo(targets, 650, () => { settle(); setTimeout(next, 450); });
+  };
+  next();
+}
+
+function stopTour() {
+  state.touring = false;
+  $("tourBtn").textContent = "Show me every view";
+}
+
+// ---------- dragging ----------
+
+function svgPoint(e) {
+  const svg = $("wheel"), pt = svg.createSVGPoint();
+  pt.x = e.clientX; pt.y = e.clientY;
+  return pt.matrixTransform(svg.getScreenCTM().inverse());
+}
+function angleOf(p) { return mod(Math.atan2(p.x, -p.y) / (2 * Math.PI), 1); }   // turns, clockwise from top
+function ringAt(r) {
+  for (let k = 0; k < state.rings.length; k++) {
+    const { outer, inner } = ringRadii(k);
+    if (r <= outer + (k === 0 ? 14 : 0) && r > inner) return k;
+  }
+  return -1;
+}
+
+$("wheel").addEventListener("pointerdown", e => {
+  const p = svgPoint(e), k = ringAt(Math.hypot(p.x, p.y));
+  if (k < 0) return;
+  stopTour();
+  cancelAnim();
+  const a = angleOf(p);
+  state.drag = { k: k, last: a, total: 0, rot0: state.rot[k], x0: e.clientX, y0: e.clientY, moved: false, angle: a };
+  state.active = k;
+  $("activeRing").value = k;
+  $("wheel").setPointerCapture(e.pointerId);
+  $("wheel").classList.add("dragging");
+});
+
+$("wheel").addEventListener("pointermove", e => {
+  const d = state.drag;
+  if (!d) return;
+  if (Math.hypot(e.clientX - d.x0, e.clientY - d.y0) > 4) d.moved = true;
+  if (!d.moved || state.rings[d.k].fixed) return;
+  const a = angleOf(svgPoint(e));
+  let da = a - d.last;
+  if (da > 0.5) da -= 1;
+  if (da < -0.5) da += 1;
+  d.total += da;
+  d.last = a;
+  state.rot[d.k] = d.rot0 + d.total * sizes()[d.k];
+  updateWheel(false);
+});
+
+function endDrag() {
+  const d = state.drag;
+  if (!d) return;
+  state.drag = null;
+  $("wheel").classList.remove("dragging");
+  if (!d.moved) {
+    // A click: light the spoke under the pointer.
+    const n0 = sizes()[0];
+    state.spoke = mod(Math.round(d.angle * n0 - state.rot[0]), n0);
+    paint();
+    return;
+  }
+  if (state.rings[d.k].fixed) { status("Ring " + (d.k + 1) + " is pinned. Unpin it below to turn it."); return; }
+  status("");
+  const targets = state.rot.slice();
+  targets[d.k] = Math.round(targets[d.k]);
+  animateTo(targets, 150, settle);
+}
+$("wheel").addEventListener("pointerup", endDrag);
+$("wheel").addEventListener("pointercancel", endDrag);
+
+// ---------- the ring editor ----------
+
+function buildEditor() {
+  const box = $("ringsEd");
+  box.innerHTML = "";
+  const colIds = Object.keys(state.columns);
+  state.rings.forEach((r, k) => {
+    const d = document.createElement("div");
+    d.className = "ringed";
+    let sel = "";
+    if (colIds.length) {
+      sel = '<select class="rcol"><option value="">read as itself</option>' +
+        colIds.map(id => '<option value="' + id + '"' + (r.column === id ? " selected" : "") + ">" + esc(state.columns[id].label) + "</option>").join("") +
+        "</select>";
+    }
+    d.innerHTML = '<div class="rh"><b>' + (k + 1) + '</b><input type="text" class="rname" value="' + esc(r.name) + '">' +
+      '<label><input type="checkbox" class="rfixed"' + (r.fixed ? " checked" : "") + "> pinned</label></div>" + sel +
+      '<textarea class="ritems" spellcheck="false">' + esc(r.items.map(t => t === "" ? "-" : t).join("\n")) + "</textarea>";
+    box.appendChild(d);
+  });
+  $("removeRing").disabled = state.rings.length <= 2;
+  $("addRing").disabled = state.rings.length >= 6;
+}
+
+let editTimer = null;
+function onEdit() {
+  clearTimeout(editTimer);
+  editTimer = setTimeout(readEditor, 350);
+}
+
+function readEditor() {
+  const blocks = Array.from(document.querySelectorAll(".ringed"));
+  const rings = [];
+  for (let k = 0; k < blocks.length; k++) {
+    const b = blocks[k];
+    const items = b.querySelector(".ritems").value.split("\n").map(s => s.trim()).filter(s => s !== "").map(s => s === "-" ? "" : s);
+    if (items.length < 2) { status("Ring " + (k + 1) + " needs at least two items."); return; }
+    if (items.length > 72) { status("Ring " + (k + 1) + " has more than 72 items; the wheel can't letter that many."); return; }
+    const colSel = b.querySelector(".rcol");
+    rings.push({ name: b.querySelector(".rname").value, items: items, column: colSel ? colSel.value : "", fixed: b.querySelector(".rfixed").checked });
+  }
+  status("");
+  state.rings = rings;
+  rebuild();
+}
+
+function addRing() {
+  if (state.rings.length >= 6) return;
+  const last = state.rings[state.rings.length - 1];
+  state.rings.push({ name: "ring " + (state.rings.length + 1), items: last.items.slice(), column: last.column, fixed: false });
+  state.rot.push(0);
+  state.template += " {" + state.rings.length + "}";
+  $("template").value = state.template;
+  buildEditor();
+  rebuild();
+}
+
+function removeRing() {
+  if (state.rings.length <= 2) return;
+  const n = state.rings.length;
+  state.rings.pop();
+  state.rot.pop();
+  state.template = state.template.split("{" + n + "}").join("").replace(/\s+/g, " ").trim();
+  $("template").value = state.template;
+  buildEditor();
+  rebuild();
+}
+
+function buildActiveSelect() {
+  $("activeRing").innerHTML = state.rings.map((r, k) => '<option value="' + k + '">' + (k + 1) + " · " + esc(r.name) + "</option>").join("");
+  $("activeRing").value = state.active;
+}
+
+// ---------- kept lines ----------
+
+function keep(j) {
+  const v = state.readings[j];
+  if (!v) return;
+  const t = $("kept");
+  t.value += (t.value && !t.value.endsWith("\n") ? "\n" : "") + v.text + "\n";
+  t.scrollTop = t.scrollHeight;
+}
+
+async function copyText(id, what) {
+  const t = $(id);
+  try { await navigator.clipboard.writeText(t.value); status(what + " copied."); }
+  catch (e) { t.focus(); t.select(); status(what + " selected: press Ctrl+C (⌘C) to copy."); }
+}
+
+// ---------- recipe ----------
+
+function updateRecipe() {
+  const r = {
+    tool: "volvelle", version: 1, preset: state.presetKey,
+    rings: state.rings.map((ring, k) => ({ name: ring.name, items: ring.items, column: ring.column, pinned: ring.fixed, notches: Math.round(mod(state.rot[k], ring.items.length)) })),
+    rules: state.rules, template: state.template,
+  };
+  $("recipe").value = JSON.stringify(r, null, 1);
+}
+
+function applyRecipe() {
+  let r;
+  try { r = JSON.parse($("recipe").value); } catch (e) { status("That recipe isn't valid JSON."); return; }
+  if (!r || !Array.isArray(r.rings) || r.rings.length < 2 || r.rings.length > 6) { status("A recipe needs between 2 and 6 rings."); return; }
+  const base = PRESETS[r.preset] || PRESETS.blank;
+  const rings = [];
+  for (const g of r.rings) {
+    if (!g || !Array.isArray(g.items) || g.items.length < 2 || g.items.length > 72) { status("Each ring needs between 2 and 72 items."); return; }
+    rings.push({ name: String(g.name || ""), items: g.items.map(String), column: base.columns[g.column] ? g.column : "", fixed: !!g.pinned });
+  }
+  state.presetKey = PRESETS[r.preset] ? r.preset : "blank";
+  state.columns = base.columns;
+  state.alphabet = base.alphabet;
+  state.llull = base.llull && rings.length === 3;
+  state.rings = rings;
+  state.rot = r.rings.map(g => (Number.isFinite(g.notches) ? Math.round(g.notches) : 0));
+  state.rules = { noRepeats: !!(r.rules && r.rules.noRepeats), unordered: !!(r.rules && r.rules.unordered) };
+  state.template = typeof r.template === "string" ? r.template : rings.map((g, k) => "{" + (k + 1) + "}").join(" ");
+  $("presetAbout").textContent = base.about;
+  writeControls();
+  buildEditor();
+  status("");
+  rebuild();
+}
+
+// ---------- wiring ----------
+
+$("preset").innerHTML = Object.keys(PRESETS).map(k => '<option value="' + k + '">' + esc(PRESETS[k].title) + "</option>").join("");
+$("preset").addEventListener("change", e => loadPreset(e.target.value));
+$("noRepeats").addEventListener("change", e => { state.rules.noRepeats = e.target.checked; rebuild(); });
+$("unordered").addEventListener("change", e => { state.rules.unordered = e.target.checked; rebuild(); });
+$("showGloss").addEventListener("change", e => { state.showGloss = e.target.checked; buildWheel(); updateWheel(true); });
+$("template").addEventListener("input", e => {
+  state.template = e.target.value;
+  state.readings = readAll();
+  paintReadings();
+  updateRecipe();
+});
+$("ringsEd").addEventListener("input", onEdit);
+$("ringsEd").addEventListener("change", onEdit);
+$("addRing").addEventListener("click", addRing);
+$("removeRing").addEventListener("click", removeRing);
+$("spinBtn").addEventListener("click", spin);
+$("tourBtn").addEventListener("click", () => (state.touring ? stopTour() : tour()));
+$("resetBtn").addEventListener("click", () => { stopTour(); startCounting(); });
+$("activeRing").addEventListener("change", e => { state.active = +e.target.value; updateWheel(false); });
+$("leftBtn").addEventListener("click", () => stepRing(state.active, -1));
+$("rightBtn").addEventListener("click", () => stepRing(state.active, 1));
+$("readings").addEventListener("click", e => {
+  const kb = e.target.closest("button[data-keep]");
+  if (kb) { keep(+kb.dataset.keep); return; }
+  const tr = e.target.closest("tr[data-j]");
+  if (tr) { state.spoke = +tr.dataset.j; paint(); }
+});
+$("copyKept").addEventListener("click", () => copyText("kept", "Kept lines"));
+$("clearKept").addEventListener("click", () => { $("kept").value = ""; });
+$("copyRecipe").addEventListener("click", () => copyText("recipe", "Recipe"));
+$("applyRecipe").addEventListener("click", applyRecipe);
+
+document.addEventListener("keydown", e => {
+  const tag = e.target.tagName;
+  if (tag === "TEXTAREA" || tag === "SELECT" || (tag === "INPUT" && e.target.type === "text")) return;
+  const n0 = sizes()[0];
+  if (e.key === " ") { e.preventDefault(); spin(); }
+  else if (e.key >= "1" && e.key <= "6" && +e.key <= state.rings.length) {
+    state.active = +e.key - 1; $("activeRing").value = state.active; updateWheel(false);
+  }
+  else if (e.key === "ArrowLeft") { e.preventDefault(); stepRing(state.active, -1); }
+  else if (e.key === "ArrowRight") { e.preventDefault(); stepRing(state.active, 1); }
+  else if (e.key === "ArrowUp") { e.preventDefault(); state.spoke = mod(state.spoke - 1, n0); paint(); }
+  else if (e.key === "ArrowDown") { e.preventDefault(); state.spoke = mod(state.spoke + 1, n0); paint(); }
+  else if (e.key === "k" || e.key === "K") keep(state.spoke);
+});
+
+loadPreset("llull");
+</script>
+</body>
+</html>
