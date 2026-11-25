@@ -1,0 +1,679 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Thinking Wheel — Ramon Llull</title>
+<style>
+  :root {
+    --bg0: #1a140d;
+    --bg1: #050403;
+    --gold: #e2b04a;
+    --gold-dim: #7d6029;
+    --parch: #ecdfc2;
+    --faint: #9a8768;
+    --red: #d9553a;
+    --lapis: #6f9be6;
+    /* one "unit": 1% of the height of a 16:9 box that fits the screen */
+    --u: min(1vh, 0.5625vw);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; }
+  body {
+    background: radial-gradient(ellipse at 50% 45%, var(--bg0) 0%, #0d0a07 55%, var(--bg1) 100%);
+    color: var(--parch);
+    font-family: "Palatino Linotype", "Book Antiqua", Palatino, Georgia, serif;
+  }
+  body.idle { cursor: none; }
+
+  #stage {
+    height: 100vh;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    grid-template-rows: auto 1fr auto;
+    grid-template-areas: "head head head" "spokes center table" "foot foot foot";
+    gap: 0 2.5vw;
+    padding: calc(2.2 * var(--u)) 2.5vw calc(1.6 * var(--u));
+    transition: opacity 1.2s ease;
+  }
+  #stage.dark { opacity: 0; }
+
+  header { grid-area: head; text-align: center; }
+  header h1 {
+    margin: 0;
+    font-weight: normal;
+    font-size: calc(5.2 * var(--u));
+    letter-spacing: 0.32em;
+    color: var(--gold);
+    text-shadow: 0 0 24px rgba(226, 176, 74, 0.35);
+  }
+  header h1 .r { color: var(--red); }
+  header p { margin: calc(0.4 * var(--u)) 0 0; font-style: italic; color: var(--faint); font-size: calc(2.1 * var(--u)); }
+
+  /* ---- side panels ---- */
+  .panel { align-self: center; max-height: 100%; overflow: hidden; }
+  .panel h2 {
+    margin: 0 0 calc(1 * var(--u));
+    font-weight: normal;
+    font-size: calc(1.7 * var(--u));
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: var(--gold);
+    border-bottom: 1px solid var(--gold-dim);
+    padding-bottom: calc(0.6 * var(--u));
+  }
+  .note { font-size: calc(1.6 * var(--u)); color: var(--faint); font-style: italic; margin: calc(1.2 * var(--u)) 0 0; line-height: 1.4; }
+
+  #spokes { grid-area: spokes; justify-self: end; width: 100%; max-width: calc(46 * var(--u)); }
+  table.rows { width: 100%; border-collapse: collapse; font-size: calc(2.05 * var(--u)); transition: opacity 0.6s; }
+  table.rows.turning { opacity: 0.25; }
+  table.rows td { padding: calc(0.55 * var(--u)) 0.5vw; border-bottom: 1px solid rgba(125, 96, 41, 0.35); transition: background 0.6s, color 0.6s; }
+  table.rows td.n { color: var(--red); text-align: right; width: 2em; }
+  table.rows td.l { color: var(--lapis); letter-spacing: 0.15em; white-space: nowrap; }
+  table.rows td.g { font-style: italic; }
+  table.rows td.c { color: var(--faint); font-size: calc(1.5 * var(--u)); text-align: right; white-space: nowrap; }
+  table.rows tr.done td { color: var(--faint); }
+  table.rows tr.done td.l { color: #4d6694; }
+  table.rows tr.lit td { background: rgba(226, 176, 74, 0.2); color: #fff4d8; }
+  table.rows tr.lit td.l { color: var(--gold); }
+  table.rows tr.lit td.n { color: var(--gold); }
+
+  #table { grid-area: table; justify-self: start; width: 100%; max-width: calc(50 * var(--u)); }
+  .colhead { display: flex; align-items: baseline; justify-content: space-between; gap: 1vw; }
+  .colhead .big { font-size: calc(4.4 * var(--u)); letter-spacing: 0.25em; color: var(--gold); text-shadow: 0 0 18px rgba(226, 176, 74, 0.4); }
+  .colhead .num { font-size: calc(1.8 * var(--u)); color: var(--faint); }
+  .chambers { display: grid; grid-template-columns: 1fr 1fr; gap: calc(0.35 * var(--u)) 0.8vw; margin-top: calc(1 * var(--u)); }
+  .ch { font-size: calc(1.5 * var(--u)); padding: calc(0.35 * var(--u)) 0.4vw; border-left: 2px solid transparent; transition: background 0.6s, border-color 0.6s; line-height: 1.3; }
+  .ch b { font-weight: normal; color: var(--lapis); letter-spacing: 0.12em; margin-right: 0.4vw; }
+  .ch b i { font-style: normal; color: var(--red); }
+  .ch span { color: var(--faint); }
+  .ch.here { background: rgba(226, 176, 74, 0.22); border-left-color: var(--gold); }
+  .ch.here b { color: var(--gold); }
+  .ch.here span { color: var(--parch); }
+  #figA { width: 100%; height: auto; display: block; }
+
+  /* ---- the wheel ---- */
+  #center { grid-area: center; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 0; }
+  #wheel { width: min(66vh, 44vw); height: min(66vh, 44vw); display: block; overflow: visible; }
+  .brass { filter: drop-shadow(0 0 28px rgba(226, 176, 74, 0.28)); }
+  .wedge { fill: rgba(246, 205, 105, 0.5); filter: drop-shadow(0 0 10px rgba(246, 205, 105, 0.9)); transition: opacity 0.5s; }
+  .dot { transition: r 0.6s, fill 0.8s; }
+  .dots.finale .dot.on { animation: pulse 1.6s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: 0.35; } }
+
+  #caption { text-align: center; min-height: calc(11 * var(--u)); margin-top: calc(1.6 * var(--u)); transition: opacity 0.6s; }
+  #caption.hide { opacity: 0; }
+  #capBig { font-size: calc(4.2 * var(--u)); letter-spacing: 0.3em; color: var(--gold); text-shadow: 0 0 20px rgba(226, 176, 74, 0.45); }
+  #capBig i { font-style: normal; color: var(--red); }
+  #capSmall { font-size: calc(2.6 * var(--u)); font-style: italic; margin-top: calc(0.4 * var(--u)); }
+
+  /* ---- footer ---- */
+  footer {
+    grid-area: foot;
+    display: grid;
+    grid-template-columns: 1fr 2.4fr 1fr;
+    align-items: end;
+    gap: 2vw;
+    border-top: 1px solid var(--gold-dim);
+    padding-top: calc(1.2 * var(--u));
+    font-size: calc(1.9 * var(--u));
+  }
+  #status { color: var(--faint); }
+  #fact { text-align: center; font-style: italic; transition: opacity 1s; min-height: calc(5.4 * var(--u)); }
+  #fact.hide { opacity: 0; }
+  #invite { text-align: right; color: var(--red); letter-spacing: 0.08em; animation: breathe 4s ease-in-out infinite; }
+  @keyframes breathe { 50% { opacity: 0.45; } }
+
+  /* Portrait screens: wheel on top, panels side by side below. */
+  @media (max-aspect-ratio: 1/1) {
+    :root { --u: min(0.9vw, 0.6vh); }
+    #stage { grid-template-columns: 1fr 1fr; grid-template-rows: auto auto 1fr auto;
+             grid-template-areas: "head head" "center center" "spokes table" "foot foot"; }
+    #wheel { width: min(88vw, 52vh); height: min(88vw, 52vh); }
+    #spokes, #table { justify-self: stretch; max-width: none; align-self: start; }
+  }
+</style>
+</head>
+<body>
+<div id="stage" class="dark">
+  <header>
+    <h1>THE <span class="r">T</span>HINKING WHEEL</h1>
+    <p id="sub"></p>
+  </header>
+
+  <section id="spokes" class="panel">
+    <h2>Along the spokes</h2>
+    <table class="rows" id="rows"></table>
+    <p class="note" id="spokeNote"></p>
+  </section>
+
+  <section id="center">
+    <svg id="wheel" viewBox="-340 -340 680 680" aria-label="Llull's wheel"></svg>
+    <div id="caption"><div id="capBig"></div><div id="capSmall"></div></div>
+  </section>
+
+  <section id="table" class="panel">
+    <h2 id="tableTitle"></h2>
+    <div id="tableBody"></div>
+  </section>
+
+  <footer>
+    <div id="status"></div>
+    <div id="fact"></div>
+    <div id="invite"></div>
+  </footer>
+</div>
+
+<script>
+"use strict";
+
+// =====================================================================
+// SETTINGS: edit these for the installation.
+// =====================================================================
+const CONFIG = {
+  invite: "The exhibition continues inside →",
+  spinMs: 3600,        // how long the rings take to turn
+  settleMs: 1400,      // pause after the wheel stops, before the first spoke lights
+  spokeMs: 2800,       // how long each spoke stays lit
+  afterTurnMs: 1800,   // pause after the ninth spoke
+  introMs: 6500,       // title card at the start of each figure
+  finaleMs: 9000,      // closing card when a figure is complete
+  factMs: 15000,       // how long each fact stays in the footer
+  // Which column each ring of the Fourth Figure is read through, cycle by cycle.
+  // "A" = absolute principles (Figure A), "T" = relative principles (Figure T).
+  fourthColumns: [["A", "A", "T"], ["A", "T", "T"], ["A", "A", "A"], ["T", "A", "A"], ["T", "T", "T"]],
+};
+
+// =====================================================================
+// LLULL'S ALPHABET (Ars brevis). English renderings; the predicate forms are ours.
+// =====================================================================
+const LETTERS = ["B", "C", "D", "E", "F", "G", "H", "I", "K"];
+const COLUMNS = {
+  A:  { name: "principles", values: ["goodness", "greatness", "eternity", "power", "wisdom", "will", "virtue", "truth", "glory"] },
+  Ap: { name: "predicates", values: ["good", "great", "eternal", "powerful", "wise", "willed", "virtuous", "true", "glorious"] },
+  T:  { name: "relations",  values: ["difference", "concordance", "contrariety", "beginning", "middle", "end", "majority", "equality", "minority"] },
+  Q:  { name: "questions",  values: ["whether?", "what?", "of what?", "why?", "how much?", "of what kind?", "when?", "where?", "how?"] },
+};
+
+const FACTS = [
+  "Ramon Llull (c. 1232–1316) built his Art to persuade Muslims and Jews, starting only from principles all three faiths accepted.",
+  "In medieval copies the inner rings really turned: paper discs, tied to the page through the centre with a knotted thread.",
+  "Each letter means several things at once. B is goodness, difference, “whether?”, God, justice — and avarice.",
+  "Three rings of nine letters give 729 readings. Llull threw out repeated letters and ignored order. 84 survive.",
+  "Each of the 84 columns of Llull's Table holds 20 “chambers”: 1,680 questions in all.",
+  "The wheel shows nine readings at a time, and they always arrive as a family. Ten turns show everything; no fewer can.",
+  "In 1666 the young Leibniz answered Llull with his Dissertation on the Art of Combinations.",
+  "Swift mocked machines like this in Gulliver's Travels (1726): a word-frame that would let the most ignorant person write books.",
+  "The machine does not answer questions. It asks them. Somebody still has to think.",
+  "Llull's two-ring version draws a star with every turn. Eight turns, and the stars add up to his Figure A.",
+];
+
+// =====================================================================
+// CORE: the geometry of the wheel and Llull's counting. No DOM here.
+// =====================================================================
+function mod(a, n) { return ((a % n) + n) % n; }
+
+// All rings have nine letters, so ring k turned r notches shows letter (j - r)
+// on spoke j of the fixed outer ring.
+function readSpoke(rots, j) { return rots.map(r => mod(j - r, 9)); }
+
+function keyOf(idx, unordered) { return (unordered ? idx.slice().sort((a, b) => a - b) : idx).join(","); }
+
+// Every position of the free rings, grouped into "views": the set of readings
+// one position shows. A position shows nine readings with distinct letters,
+// or (when two rings line up) nine readings that all repeat a letter; Llull
+// discards those, so the position counts for nothing.
+function survey(nRings, unordered) {
+  const views = new Map(), table = new Map();
+  const positions = Math.pow(9, nRings - 1);
+  for (let s = 0; s < positions; s++) {
+    const rots = [0];
+    let x = s;
+    for (let k = 1; k < nRings; k++) { rots.push(x % 9); x = Math.floor(x / 9); }
+    const first = readSpoke(rots, 0);
+    if (new Set(first).size < nRings) continue;          // a dead position
+    const keys = [];
+    for (let j = 0; j < 9; j++) {
+      const idx = readSpoke(rots, j), key = keyOf(idx, unordered);
+      keys.push(key);
+      if (!table.has(key)) table.set(key, unordered ? idx.slice().sort((a, b) => a - b) : idx);
+    }
+    const uniq = Array.from(new Set(keys)).sort();
+    const sig = uniq.join("|");
+    if (!views.has(sig)) views.set(sig, { rots: rots, keys: uniq });
+  }
+  const viewList = Array.from(views.values());
+  const familyOf = new Map();
+  viewList.forEach((v, i) => v.keys.forEach(k => familyOf.set(k, i)));
+  const tableKeys = Array.from(table.keys()).sort((a, b) => {
+    const A = table.get(a), B = table.get(b);
+    for (let i = 0; i < A.length; i++) if (A[i] !== B[i]) return A[i] - B[i];
+    return 0;
+  });
+  return { views: viewList, tableKeys: tableKeys, familyOf: familyOf };
+}
+
+function combinations(arr, k) {
+  const out = [];
+  const pick = (start, acc) => {
+    if (acc.length === k) { out.push(acc.slice()); return; }
+    for (let i = start; i < arr.length; i++) { acc.push(arr[i]); pick(i + 1, acc); acc.pop(); }
+  };
+  pick(0, []);
+  return out;
+}
+
+// The 20 chambers of a column of the Table: letters before T are read in
+// Figure A, letters after T in Figure T. Order as in the Ars brevis.
+function llullChambers(letters) {
+  const out = [];
+  for (let k = 3; k >= 0; k--)
+    for (const before of combinations(letters, k))
+      for (const after of combinations(letters, 3 - k))
+        out.push({ before: before, after: after, code: before.join("") + "T" + after.join("") });
+  return out;
+}
+const COLUMNS_OF_TABLE = combinations(LETTERS.map((t, i) => i), 3).map(c => c.join(","));
+
+function shuffle(a) {
+  a = a.slice();
+  for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+  return a;
+}
+function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
+// =====================================================================
+// PAGE
+// =====================================================================
+const $ = id => document.getElementById(id);
+const NS = "http://www.w3.org/2000/svg";
+const R_OUT = 290, R_HUB = 62, R_DOTS = 322;
+
+function el(tag, attrs, parent) {
+  const e = document.createElementNS(NS, tag);
+  for (const a in attrs) e.setAttribute(a, attrs[a]);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+
+const state = { paused: false, rot: [], cols: [], mode: null, dots: new Map(), revealed: new Set() };
+const wheel = { rings: [], wedge: null, dotsGroup: null };
+
+// ---------- time that respects the pause key ----------
+
+function sleep(ms) {
+  return new Promise(resolve => {
+    let left = ms, last = performance.now();
+    (function tick() {
+      const now = performance.now();
+      if (!state.paused) left -= now - last;
+      last = now;
+      if (left <= 0) resolve(); else setTimeout(tick, 50);
+    })();
+  });
+}
+
+function animateRings(targets, ms) {
+  return new Promise(resolve => {
+    const from = state.rot.slice();
+    let elapsed = 0, last = performance.now();
+    (function step(now) {
+      if (!state.paused) elapsed += now - last;
+      last = now;
+      const u = Math.min(1, elapsed / ms);
+      const e = u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2;   // ease in and out
+      state.rot = from.map((f, k) => f + (targets[k] - f) * e);
+      placeRings();
+      if (u < 1) requestAnimationFrame(step);
+      else { state.rot = targets.map(t => mod(t, 9)); placeRings(); resolve(); }
+    })(last);
+  });
+}
+
+// ---------- the wheel ----------
+
+function sectorPath(r1, r2, a0, a1) {
+  const p = (r, a) => (r * Math.sin(2 * Math.PI * a)).toFixed(2) + "," + (-r * Math.cos(2 * Math.PI * a)).toFixed(2);
+  return "M" + p(r2, a0) + " A" + r2 + "," + r2 + " 0 0 1 " + p(r2, a1) +
+         " L" + p(r1, a1) + " A" + r1 + "," + r1 + " 0 0 0 " + p(r1, a0) + " Z";
+}
+
+// Draw the wheel: one ring per column id in cols (outer first).
+function buildWheel(cols, tableKeys) {
+  const svg = $("wheel");
+  svg.innerHTML = "";
+  wheel.rings = [];
+  const n = cols.length, w = (R_OUT - R_HUB) / n;
+
+  // brass rim with nine ticks
+  el("circle", { r: R_OUT + 16, fill: "#2a2116", stroke: "#7d6029", "stroke-width": 1.5, class: "brass" }, svg);
+  for (let i = 0; i < 9; i++) {
+    const g = el("g", { transform: "rotate(" + (40 * i + 20) + ")" }, svg);
+    el("line", { x1: 0, y1: -R_OUT - 3, x2: 0, y2: -R_OUT - 13, stroke: "#b58a3a", "stroke-width": 1.5 }, g);
+  }
+
+  // ring fills and lettering, each ring in its own group so it can turn
+  for (let k = 0; k < n; k++) {
+    const outer = R_OUT - k * w, inner = outer - w, mid = (outer + inner) / 2;
+    const g = el("g", {}, svg);
+    const tones = k % 2 ? ["#e6d5ae", "#ddca9f"] : ["#f2e6c9", "#eadcb8"];
+    for (let i = 0; i < 9; i++) {
+      el("path", { d: sectorPath(inner, outer, (i - 0.5) / 9, (i + 0.5) / 9), fill: tones[i % 2], stroke: "#8a7650", "stroke-width": 0.8 }, g);
+    }
+    wheel.rings.push(g);
+  }
+
+  // the lit spoke: a glowing wedge across all rings (the rings share one sector size)
+  wheel.wedge = el("path", { d: sectorPath(R_HUB, R_OUT, -0.5 / 9, 0.5 / 9), class: "wedge", opacity: 0 }, svg);
+
+  // lettering on top of the wedge
+  wheel.labels = [];
+  for (let k = 0; k < n; k++) {
+    const outer = R_OUT - k * w, inner = outer - w, mid = (outer + inner) / 2;
+    const g = el("g", {}, svg);
+    const values = COLUMNS[cols[k]].values;
+    for (let i = 0; i < 9; i++) {
+      const t = el("g", { transform: "rotate(" + (40 * i) + ") translate(0," + (-mid).toFixed(1) + ")" }, g);
+      const letter = el("text", { y: -w * 0.1, "text-anchor": "middle", "dominant-baseline": "central",
+        "font-size": Math.min(34, w * 0.42).toFixed(1), fill: i % 2 ? "#1f4a8c" : "#a82516" }, t);
+      letter.textContent = LETTERS[i];
+      const arc = 2 * Math.PI * (mid - w * 0.22) / 9;
+      const gloss = el("text", { y: w * 0.27, "text-anchor": "middle", "dominant-baseline": "central", "font-style": "italic",
+        "font-size": Math.min(15, 0.92 * arc / (values[i].length * 0.52)).toFixed(1), fill: "#5a4630" }, t);
+      gloss.textContent = values[i];
+    }
+    wheel.labels.push(g);
+  }
+
+  // hub with the knotted thread
+  el("circle", { r: R_HUB, fill: "#2a2116", stroke: "#7d6029", "stroke-width": 1.5 }, svg);
+  el("circle", { r: R_HUB - 8, fill: "none", stroke: "#4d3c20", "stroke-width": 1 }, svg);
+  el("path", { d: "M-26,16 C-9,2 -12,-9 0,0 C12,9 9,-7 28,-18", fill: "none", stroke: "#c79a4a", "stroke-width": 2.4, "stroke-linecap": "round" }, svg);
+  el("circle", { r: 6.5, fill: "#c79a4a" }, svg);
+
+  // a ring of dots outside the rim, one per entry of the table being filled
+  wheel.dotsGroup = el("g", { class: "dots" }, svg);
+  state.dots = new Map();
+  tableKeys.forEach((key, i) => {
+    const a = 2 * Math.PI * i / tableKeys.length;
+    const c = el("circle", { cx: (R_DOTS * Math.sin(a)).toFixed(2), cy: (-R_DOTS * Math.cos(a)).toFixed(2), r: 2.6, fill: "#3a3022", class: "dot" }, wheel.dotsGroup);
+    state.dots.set(key, c);
+  });
+  placeRings();
+}
+
+function placeRings() {
+  state.rot.forEach((r, k) => {
+    const t = "rotate(" + (r * 40).toFixed(3) + ")";
+    wheel.rings[k].setAttribute("transform", t);
+    wheel.labels[k].setAttribute("transform", t);
+  });
+}
+
+function lightSpoke(j) {
+  if (j === null) { wheel.wedge.setAttribute("opacity", 0); return; }
+  wheel.wedge.setAttribute("transform", "rotate(" + 40 * j + ")");
+  wheel.wedge.setAttribute("opacity", 1);
+}
+
+function familyColour(i) { return "hsl(" + Math.round((i * 137.508 + 35) % 360) + ",70%,62%)"; }
+
+function revealDot(key) {
+  const c = state.dots.get(key);
+  state.dots.forEach(d => d.setAttribute("r", d.classList.contains("on") ? 3.4 : 2.6));
+  if (!c) return;
+  c.classList.add("on");
+  c.setAttribute("fill", familyColour(state.mode.survey.familyOf.get(key)));
+  c.setAttribute("r", 6.5);
+  state.revealed.add(key);
+}
+
+// ---------- text ----------
+
+function caption(big, small) {
+  $("capBig").innerHTML = big;
+  $("capSmall").innerHTML = small;
+}
+
+async function swapCaption(big, small) {
+  $("caption").classList.add("hide");
+  await sleep(500);
+  caption(big, small);
+  $("caption").classList.remove("hide");
+}
+
+function status(text) { $("status").textContent = text; }
+
+// =====================================================================
+// THE TWO FIGURES
+// =====================================================================
+
+// ---------- the Fourth Figure: three rings, Llull's Table ----------
+
+const FOURTH = {
+  rings: 3, unordered: true, survey: null, cycle: 0,
+  subtitle: "The Fourth Figure · Ramon Llull, <i>Ars brevis</i>, 1308",
+  setup() {
+    this.cols = CONFIG.fourthColumns[this.cycle++ % CONFIG.fourthColumns.length];
+    $("tableTitle").textContent = "Llull's Table";
+    $("tableBody").innerHTML = '<p class="note">Each spoke belongs to one of the 84 columns of Llull\'s Table. Each column holds 20 “chambers”: ways of reading its three letters as principles (before <b>T</b>) or as relations (after <b>T</b>).</p>';
+    const names = this.cols.map(c => COLUMNS[c].name);
+    $("spokeNote").innerHTML = "Outer ring read as " + names[0] + ", middle as " + names[1] + ", inner as " + names[2] +
+      ". The outer ring never moves; the two inner rings turn.";
+  },
+  intro: ["729 → 84", "Three rings, nine letters. Llull keeps only triples of different letters, in any order."],
+  finale() {
+    return ["84 of 84", "Llull's whole Table in " + this.survey.views.length + " turns of the wheel — the fewest possible."];
+  },
+  unit: "columns",
+  row(idx) {
+    const col = COLUMNS_OF_TABLE.indexOf(keyOf(idx, true)) + 1;
+    return '<td class="l">' + idx.map(i => LETTERS[i]).join(" ") + '</td><td class="g">' +
+      esc(idx.map((i, k) => COLUMNS[this.cols[k]].values[i]).join(" · ")) + '</td><td class="c">col. ' + col + "</td>";
+  },
+  show(idx) {
+    const letters = idx.slice().sort((a, b) => a - b);
+    const number = COLUMNS_OF_TABLE.indexOf(letters.join(",")) + 1;
+    const before = idx.filter((t, k) => this.cols[k] === "A").sort((a, b) => a - b);
+    const after = idx.filter((t, k) => this.cols[k] === "T").sort((a, b) => a - b);
+    const here = before.map(i => LETTERS[i]).join("") + "T" + after.map(i => LETTERS[i]).join("");
+    const gl = (id, ls) => ls.map(i => COLUMNS[id].values[i]).join(", ");
+    const chambers = llullChambers(letters).map(c => {
+      const code = c.before.map(i => LETTERS[i]).join("") + "T" + c.after.map(i => LETTERS[i]).join("");
+      const a = gl("A", c.before), t = gl("T", c.after);
+      return '<div class="ch' + (code === here ? " here" : "") + '"><b>' + code.replace("T", "<i>T</i>") + "</b><span>" +
+             esc(a) + (a && t ? " | " : "") + esc(t) + "</span></div>";
+    });
+    $("tableBody").innerHTML =
+      '<div class="colhead"><span class="big">' + letters.map(i => LETTERS[i]).join("") + '</span><span class="num">column ' + number + " of 84</span></div>" +
+      '<div class="chambers">' + chambers.join("") + "</div>" +
+      '<p class="note">Asked under the questions of its letters: ' + esc(letters.map(i => COLUMNS.Q.values[i]).join(" / ")) + "</p>";
+    caption(here.split("").map(ch => ch === "T" ? "<i>T</i>" : ch).join(" "),
+            esc(cap(idx.map((i, k) => COLUMNS[this.cols[k]].values[i]).join(" · "))));
+  },
+};
+
+// ---------- Figure A as a wheel: two rings, a star with every turn ----------
+
+const FIGURE_A = {
+  rings: 2, unordered: false, survey: null, cols: ["A", "Ap"],
+  subtitle: "Figure A, set turning · Ramon Llull, <i>Ars brevis</i>, 1308",
+  setup() {
+    $("tableTitle").textContent = "Figure A";
+    $("spokeNote").innerHTML = "Outer ring: the subject. Inner ring: what is said of it. Each turn links every principle to the one the same number of steps around: a star.";
+    this.buildGraph();
+  },
+  intro: ["9 × 8 = 72", "Two rings: subject and predicate. Watch Llull's Figure A draw itself, one star at a time."],
+  finale() {
+    return ["72 of 72", "Every principle said of every other, both ways. In God, Llull held, all of them are true."];
+  },
+  unit: "propositions",
+  sentence(idx) { return cap(COLUMNS.A.values[idx[0]]) + " is " + COLUMNS.Ap.values[idx[1]] + "."; },
+  row(idx) {
+    return '<td class="l">' + LETTERS[idx[0]] + " → " + LETTERS[idx[1]] + '</td><td class="g">' + esc(this.sentence(idx)) + '</td><td class="c"></td>';
+  },
+  graph: null,
+  buildGraph() {
+    const R = 125, node = 15;
+    const svg = '<svg id="figA" viewBox="-235 -190 470 380"><defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#d9553a"/></marker></defs><g id="chords"></g><g id="current"></g><g id="nodes"></g></svg>';
+    $("tableBody").innerHTML = svg + '<p class="note" id="figNote">A faint line: said one way. A gold line: said both ways. Llull drew Figure A with every line in place.</p>';
+    const pos = i => [R * Math.sin(2 * Math.PI * i / 9), -R * Math.cos(2 * Math.PI * i / 9)];
+    const nodes = document.getElementById("nodes"), chords = document.getElementById("chords");
+    this.graph = { pos: pos, node: node, lines: new Map(), seen: new Set() };
+    for (let i = 0; i < 9; i++) for (let j = i + 1; j < 9; j++) {
+      const [x1, y1] = pos(i), [x2, y2] = pos(j);
+      this.graph.lines.set(i + "-" + j, el("line", { x1: x1, y1: y1, x2: x2, y2: y2, stroke: "#e2b04a", "stroke-width": 1.4, opacity: 0 }, chords));
+    }
+    for (let i = 0; i < 9; i++) {
+      const [x, y] = pos(i);
+      el("circle", { cx: x, cy: y, r: node, fill: "#2a2116", stroke: "#e2b04a", "stroke-width": 1.2 }, nodes);
+      const t = el("text", { x: x, y: y, "text-anchor": "middle", "dominant-baseline": "central", "font-size": 15, fill: i % 2 ? "#6f9be6" : "#d9553a" }, nodes);
+      t.textContent = LETTERS[i];
+      const lx = x * 1.33, ly = y * 1.27;
+      const g = el("text", { x: lx, y: ly, "text-anchor": Math.abs(x) < 5 ? "middle" : x > 0 ? "start" : "end", "dominant-baseline": "central",
+        "font-size": 12.5, "font-style": "italic", fill: "#ecdfc2" }, nodes);
+      g.textContent = COLUMNS.A.values[i];
+    }
+  },
+  show(idx) {
+    const G = this.graph, [s, p] = idx;
+    G.seen.add(s + ">" + p);
+    const a = Math.min(s, p), b = Math.max(s, p);
+    const both = G.seen.has(a + ">" + b) && G.seen.has(b + ">" + a);
+    const line = G.lines.get(a + "-" + b);
+    line.setAttribute("opacity", both ? 0.95 : 0.3);
+    line.setAttribute("stroke-width", both ? 2 : 1.2);
+    // the proposition being read, as an arrow from subject to predicate
+    const cur = document.getElementById("current");
+    cur.innerHTML = "";
+    const [x1, y1] = G.pos(s), [x2, y2] = G.pos(p);
+    const len = Math.hypot(x2 - x1, y2 - y1), ux = (x2 - x1) / len, uy = (y2 - y1) / len, off = G.node + 3;
+    el("line", { x1: x1 + ux * off, y1: y1 + uy * off, x2: x2 - ux * off, y2: y2 - uy * off, stroke: "#d9553a", "stroke-width": 3.2,
+      "marker-end": "url(#arrow)", style: "filter: drop-shadow(0 0 6px rgba(217,85,58,0.9))" }, cur);
+    caption(LETTERS[s] + " <i>→</i> " + LETTERS[p], esc(this.sentence(idx)));
+  },
+  clearArrow() { const cur = document.getElementById("current"); if (cur) cur.innerHTML = ""; },
+};
+
+// =====================================================================
+// THE PERFORMANCE
+// =====================================================================
+
+async function perform(mode) {
+  state.mode = mode;
+  if (!mode.survey) mode.survey = survey(mode.rings, mode.unordered);
+  const S = mode.survey, total = S.tableKeys.length;
+
+  // set the stage in the dark
+  $("stage").classList.add("dark");
+  await sleep(1300);
+  mode.setup();
+  state.rot = new Array(mode.rings).fill(0);
+  state.revealed = new Set();
+  buildWheel(mode.cols, S.tableKeys);
+  lightSpoke(null);
+  $("rows").innerHTML = "";
+  $("sub").innerHTML = mode.subtitle;
+  caption(mode.intro[0], mode.intro[1]);
+  status("");
+  $("stage").classList.remove("dark");
+  await sleep(CONFIG.introMs);
+
+  const order = shuffle(S.views.map((v, i) => i));
+  for (let t = 0; t < order.length; t++) {
+    const view = S.views[order[t]];
+    status("Turn " + (t + 1) + " of " + order.length + " · " + state.revealed.size + " of " + total + " " + mode.unit);
+    $("rows").classList.add("turning");
+    lightSpoke(null);
+    if (mode.clearArrow) mode.clearArrow();
+    swapCaption("", "<span style='color:var(--faint)'>turning the wheel…</span>");
+
+    // spin: each free ring makes at least one full turn, alternate rings in opposite directions
+    const targets = state.rot.map((r, k) => {
+      if (k === 0) return r;
+      const dir = k % 2 ? 1 : -1;
+      const d = mod(dir * (view.rots[k] - r), 9);
+      return r + dir * (9 * k + d);
+    });
+    await animateRings(targets, CONFIG.spinMs);
+
+    // the nine readings of this position
+    const readings = [];
+    for (let j = 0; j < 9; j++) readings.push(readSpoke(state.rot.map(Math.round), j));
+    $("rows").innerHTML = readings.map((idx, j) => '<tr data-j="' + j + '"><td class="n">' + (j + 1) + "</td>" + mode.row(idx) + "</tr>").join("");
+    $("rows").classList.remove("turning");
+    await sleep(CONFIG.settleMs);
+
+    const trs = $("rows").querySelectorAll("tr");
+    for (let j = 0; j < 9; j++) {
+      trs.forEach((tr, i) => { tr.classList.toggle("lit", i === j); tr.classList.toggle("done", i < j); });
+      lightSpoke(j);
+      mode.show(readings[j]);
+      revealDot(keyOf(readings[j], mode.unordered));
+      status("Turn " + (t + 1) + " of " + order.length + " · " + state.revealed.size + " of " + total + " " + mode.unit);
+      await sleep(CONFIG.spokeMs);
+    }
+    trs.forEach(tr => { tr.classList.remove("lit"); tr.classList.add("done"); });
+    lightSpoke(null);
+    await sleep(CONFIG.afterTurnMs);
+  }
+
+  // finale
+  if (mode.clearArrow) mode.clearArrow();
+  const [big, small] = mode.finale();
+  await swapCaption(big, small);
+  wheel.dotsGroup.classList.add("finale");
+  status("Complete · " + total + " of " + total + " " + mode.unit + " in " + order.length + " turns");
+  await sleep(CONFIG.finaleMs);
+}
+
+async function run() {
+  while (true) {
+    await perform(FOURTH);
+    await perform(FIGURE_A);
+  }
+}
+
+// ---------- the footer ----------
+
+let factIndex = Math.floor(Math.random() * FACTS.length);
+async function facts() {
+  while (true) {
+    $("fact").textContent = FACTS[factIndex++ % FACTS.length];
+    $("fact").classList.remove("hide");
+    await sleep(CONFIG.factMs);
+    $("fact").classList.add("hide");
+    await sleep(1100);
+  }
+}
+
+// ---------- kiosk niceties ----------
+
+// Click anywhere for full screen; space pauses; the cursor hides when idle.
+document.addEventListener("click", () => {
+  if (!document.fullscreenElement && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {});
+});
+document.addEventListener("keydown", e => {
+  if (e.key === " ") { e.preventDefault(); state.paused = !state.paused; status(state.paused ? "Paused (press space)" : ""); }
+  if (e.key === "f" || e.key === "F") document.documentElement.requestFullscreen && document.documentElement.requestFullscreen().catch(() => {});
+});
+let idleTimer = null;
+document.addEventListener("mousemove", () => {
+  document.body.classList.remove("idle");
+  clearTimeout(idleTimer);
+  idleTimer = setTimeout(() => document.body.classList.add("idle"), 3000);
+});
+// Ask the screen not to sleep (works where the browser allows it).
+async function keepAwake() {
+  try { if (navigator.wakeLock) await navigator.wakeLock.request("screen"); } catch (e) {}
+}
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") keepAwake(); });
+
+$("invite").textContent = CONFIG.invite;
+keepAwake();
+facts();
+run();
+</script>
+</body>
+</html>
