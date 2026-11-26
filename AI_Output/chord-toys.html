@@ -1,0 +1,1671 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BEATS &amp; SHAPES — two toys about chords</title>
+<style>
+  :root {
+    --paper: #f3efe4;
+    --card: #fbf9f2;
+    --ink: #1f1c18;
+    --faint: #786f60;
+    --rule: #d8d0bd;
+    --accent: #c8452e;
+    --note: #fff5d8;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font: 16px/1.5 Georgia, "Times New Roman", serif;
+  }
+  main { max-width: 1220px; margin: 0 auto; padding: 22px 20px 70px; }
+
+  /* a five-line staff under the title */
+  header {
+    padding-bottom: 46px;
+    background: repeating-linear-gradient(to bottom, transparent 0 7px, var(--rule) 7px 8px) left bottom / 100% 40px no-repeat;
+  }
+  header h1 { margin: 0; font-weight: normal; font-size: 42px; letter-spacing: 0.18em; }
+  header h1 .amp { color: var(--accent); }
+  header p { margin: 2px 0 0; color: var(--faint); font-style: italic; max-width: 860px; }
+
+  section.toy { margin-top: 30px; }
+  section.toy > h2 {
+    font-weight: normal; font-size: 30px; letter-spacing: 0.06em;
+    margin: 0 0 8px; border-bottom: 2px solid var(--ink);
+  }
+  section.toy > h2 .n { color: var(--accent); }
+  .lede, ol.how { max-width: 860px; }
+  ol.how { padding-left: 1.4em; margin: 6px 0 10px; }
+  ol.how li { margin: 2px 0; }
+
+  .try { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 12px 0 4px; }
+  .try b { margin-right: 4px; }
+  .trynote {
+    max-width: 900px; background: var(--note); border-left: 3px solid var(--accent);
+    padding: 6px 10px; margin: 8px 0 0;
+  }
+  .trynote:empty { display: none; }
+
+  button {
+    font: inherit; font-size: 14px; background: var(--ink); color: var(--card);
+    border: 0; padding: 5px 11px; cursor: pointer; border-radius: 2px;
+  }
+  button:hover { background: var(--accent); }
+  button.on { background: var(--accent); }
+  button:disabled { opacity: 0.35; cursor: default; background: var(--ink); }
+  .try button {
+    background: transparent; color: var(--ink); border: 1px solid var(--faint);
+    font-size: 13px; border-radius: 14px; padding: 3px 11px;
+  }
+  .try button:hover { background: var(--ink); color: var(--card); }
+  select { font: inherit; font-size: 13px; }
+  input[type=range] { accent-color: var(--accent); }
+
+  .card { background: var(--card); border: 1px solid var(--rule); padding: 10px 12px 12px; margin-top: 12px; }
+  .card h3 { margin: 0 0 6px; font-size: 13px; font-weight: normal; letter-spacing: 0.2em; text-transform: uppercase; }
+  .cap { font-size: 13px; color: var(--faint); margin: 6px 0 0; }
+  .num { font-family: "Courier New", Courier, monospace; }
+  .faint { color: var(--faint); }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  canvas { display: block; width: 100%; }
+
+  .labgrid { display: grid; grid-template-columns: 360px 1fr; gap: 0 16px; }
+  .clockgrid { display: grid; grid-template-columns: minmax(300px, 470px) 1fr; gap: 0 16px; }
+  @media (max-width: 900px) { .labgrid, .clockgrid { grid-template-columns: 1fr; } }
+
+  /* ---- Beat Lab ---- */
+  #curveView { height: 250px; cursor: crosshair; touch-action: none; }
+  #ampsView { height: 120px; cursor: ns-resize; touch-action: none; }
+  .tone { border-top: 1px dashed var(--rule); padding: 8px 0 4px; }
+  .tone:first-child { border-top: 0; padding-top: 0; }
+  .tonehead { display: flex; justify-content: space-between; gap: 6px; align-items: center; }
+  .chip { display: inline-block; width: 12px; height: 12px; border-radius: 50%; vertical-align: -1px; }
+  .tone .row input[type=range] { flex: 1; min-width: 120px; }
+  .tone .row button { padding: 1px 8px; }
+  .tone select { max-width: 200px; }
+  .readout { font-size: 13px; margin-top: 2px; }
+  #roughTotal { font-size: 14px; margin-top: 6px; }
+  .beatrow {
+    display: grid; grid-template-columns: 1fr 130px 64px; gap: 8px; align-items: center;
+    font-size: 13px; border-bottom: 1px solid #ece5d4; padding: 4px 0;
+  }
+  .beatrow canvas { height: 24px; }
+  .beatrow .share { text-align: right; color: var(--faint); }
+  .kind { color: var(--faint); font-style: italic; }
+
+  /* ---- Chord Clock ---- */
+  svg#clockSvg { width: 100%; height: auto; display: block; user-select: none; }
+  .pc { cursor: pointer; }
+  .pc circle { fill: var(--card); stroke: #9a9080; stroke-width: 1.5; }
+  .pc:hover circle { stroke: var(--accent); stroke-width: 3; }
+  .pc text { fill: #9a9080; font-size: 13px; pointer-events: none; }
+  .pcname { fill: var(--ink); font-size: 17px; pointer-events: none; }
+  .sel { fill: var(--ink); stroke: var(--ink); stroke-width: 1.5; }
+  .sel.lit { fill: var(--accent); stroke: var(--accent); stroke-width: 6; }
+  .seltext { fill: var(--card); font-size: 13px; }
+  .axis { stroke: var(--accent); stroke-width: 1.3; stroke-dasharray: 6 5; opacity: 0.8; }
+  #ckNames { margin-top: 4px; }
+  #ckNames div { margin: 2px 0; }
+  .ivrow {
+    display: grid; grid-template-columns: 14px 26px 1fr 22px 90px; gap: 6px; align-items: center;
+    font-size: 13px; padding: 2px 3px; cursor: pointer; border-radius: 2px;
+  }
+  .ivrow:hover, .ivrow.hi { background: #f1e7cc; }
+  .ivrow .bar { height: 10px; }
+  .ivrow .bar span { display: inline-block; height: 10px; margin-right: 2px; width: 12px; }
+  #gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 6px; margin-top: 8px; }
+  .gcard {
+    border: 1px solid var(--rule); background: var(--card); padding: 4px 4px 5px;
+    text-align: center; cursor: pointer; font-size: 11px; line-height: 1.25;
+  }
+  .gcard:hover { border-color: var(--ink); }
+  .gcard.cur { border: 2px solid var(--accent); background: var(--note); }
+  .gcard svg { width: 72px; height: 72px; display: block; margin: 0 auto; }
+  .gcard .cnt { color: var(--accent); font-family: "Courier New", monospace; font-size: 12px; }
+
+  details { margin-top: 12px; max-width: 900px; }
+  details summary { cursor: pointer; font-weight: bold; }
+  details p, details li { font-size: 15px; }
+  kbd { border: 1px solid var(--faint); padding: 0 4px; font-size: 12px; border-radius: 2px; }
+  code { font-size: 14px; }
+</style>
+</head>
+<body>
+<main>
+
+<header>
+  <h1>BEATS <span class="amp">&amp;</span> SHAPES</h1>
+  <p>Two toys about chords. The <b>Beat Lab</b> shows why some notes sound smooth together and others rough: it is mostly physics you can see. The <b>Chord Clock</b> turns chords into shapes, and shows what turning and mirroring them reveals. Neither needs you to read music.</p>
+</header>
+
+<!-- =================================================================
+     THE BEAT LAB
+     ================================================================= -->
+<section class="toy" id="lab">
+  <h2><span class="n">I.</span> The Beat Lab</h2>
+  <p class="lede">A musical note is not one frequency. It is a stack of sine waves called <b>partials</b>, at 1, 2, 3, 4… times the note's main frequency (its <i>fundamental</i>). Play two notes together and their partials overlap. Where a partial of one note lands <i>exactly</i> on a partial of the other, the two simply add up. Where two partials land close but not exactly together, they interfere: the loudness swells and fades, as many times per second as the difference between their frequencies. That is a <b>beat</b>. Slow beats sound like a wobble; fast ones blur into roughness.</p>
+  <ol class="how">
+    <li>Press <b>Play</b>. You hear tone 1 (red) and tone 2 (blue). Tick tones 3 and 4 to make chords.</li>
+    <li>Move tone 2 with its slider (the ‹ › buttons nudge it by one cent), pick a named interval from its menu, or drag on the <b>roughness curve</b>.</li>
+    <li>Change what the tones are made of: drag the bars under <i>What each tone is made of</i>, or pick a preset.</li>
+    <li>Or press any of the <b>Try this</b> buttons, which set things up and explain what to listen for.</li>
+  </ol>
+  <p class="lede cap" style="font-size:14px">Intervals are measured in <b>cents</b>: 100 cents is one piano semitone and 1200 cents is an octave (twice the frequency). Cents are logarithmic, like hearing: adding cents multiplies frequency, by 2<sup>c/1200</sup>.</p>
+
+  <div class="try" id="labTries"><b>Try this:</b></div>
+  <p class="trynote" id="labNote"></p>
+
+  <div class="labgrid">
+    <div>
+      <div class="card">
+        <h3>Sound</h3>
+        <div class="row">
+          <button id="playBtn" title="space">▶ Play</button>
+          <label>volume <input type="range" id="vol" min="0" max="1" step="0.01"></label>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Tones</h3>
+        <div id="toneRows">
+          <div class="tone">
+            <div class="tonehead"><span><span class="chip" style="background:#c8452e"></span> <b>tone 1</b> (the root)</span></div>
+            <div class="row"><input type="range" id="root" min="36" max="84" step="1"></div>
+            <div class="readout" id="ro0"></div>
+          </div>
+        </div>
+        <p class="cap">Tones 2–4 are set as an interval above tone 1. The menus jump to the 12 piano intervals or to simple whole-number frequency ratios.</p>
+      </div>
+
+      <div class="card">
+        <h3>What each tone is made of</h3>
+        <canvas id="ampsView"></canvas>
+        <p class="cap" id="ampsCap"></p>
+        <div class="row" style="margin-top:6px">
+          <select id="timbre"></select>
+        </div>
+        <label class="row" style="margin-top:6px">stretch <input type="range" id="stretch" min="0.95" max="1.1" step="0.005" style="flex:1"></label>
+        <p class="cap" id="stretchCap"></p>
+      </div>
+    </div>
+
+    <div>
+      <div class="card">
+        <h3>Roughness curve</h3>
+        <canvas id="curveView"></canvas>
+        <div id="roughTotal"></div>
+        <p class="cap">How rough tone 1 plus one other tone would be at every interval from unison to just past an octave, given what the tones are made of. Low is smooth. <b>Dips</b> are intervals where partials line up. Grey lines and labels along the top are the 12 piano intervals, every 100 cents. Green labels underneath are whole-number frequency ratios. The coloured lines show where tones 2–4 are now. Drag on the curve to move the nearest tone; it snaps to the marks (the sliders don't). The numbers come from a model of hearing, described at the bottom of this section.</p>
+      </div>
+
+      <div class="card">
+        <h3>Partials</h3>
+        <canvas id="ladderView"></canvas>
+        <p class="cap">Every partial of every tone that's switched on. Frequency runs left to right on a log scale, so equal distances are equal ratios; tick height is loudness. <b style="color:#2f8046">Green links</b>: partials of two different tones at exactly the same frequency. <b style="color:#c8452e">Red links</b>: partials close enough to interact, labelled with their beat rate.</p>
+      </div>
+
+      <div class="card">
+        <h3>Who is beating whom</h3>
+        <div id="beatList"></div>
+      </div>
+    </div>
+  </div>
+
+  <details>
+    <summary>How this works, and what the model leaves out</summary>
+    <p><b>Beats.</b> Two sine waves at frequencies f₁ and f₂ add up to sin(2πf₁t) + sin(2πf₂t) = 2 cos(π(f₁−f₂)t) · sin(π(f₁+f₂)t): a tone at the average frequency whose loudness rises and falls |f₁ − f₂| times per second. The little waves in <i>Who is beating whom</i> draw one second of that swell. As a rough guide, below about 10–15 beats per second you hear a wobble; faster beats fuse into a buzzy roughness; and once two partials are more than about a <i>critical band</i> apart (a span that is roughly a minor third in the middle of the piano, and wider at the bottom), the ear hears them as separate and smooth.</p>
+    <p><b>Equal temperament.</b> Pianos split the octave into 12 equal ratios of 2<sup>1/12</sup> ≈ 1.05946, so n semitones is a ratio of 2<sup>n/12</sup>. For 0 &lt; n &lt; 12 that is irrational, so no piano interval except the octave is exactly a whole-number ratio, and so no piano interval lines its partials up exactly. Some come very close: the fifth is 700 cents against 701.96 for 3:2. Others are well off: the major third is 400 cents against 386.31 for 5:4, and the minor third is 300 against 315.64 for 6:5. Equal temperament makes every key equally usable by making every key slightly out of tune.</p>
+    <p><b>The roughness model.</b> Plomp and Levelt (1965) asked listeners to rate how rough pairs of pure sine tones sounded. Roughness was zero at unison, peaked when the tones were about a quarter of a critical band apart, and faded away beyond about a whole critical band. William Sethares (1993) fitted a formula to their curve. This page adds that formula up over every pair of partials that belong to <i>different</i> tones: for partials at f and f + Δf with loudnesses a₁ and a₂, the roughness is min(a₁, a₂) · 5 · (e<sup>−3.51x</sup> − e<sup>−5.75x</sup>), where x = 0.24 Δf / (0.0207 f + 18.96). That last expression is why low notes are rougher: the ear's resolution in hertz doesn't shrink as fast as the intervals do.</p>
+    <p><b>What it leaves out.</b> This is <i>sensory roughness</i> only, and the units are arbitrary. It says nothing about why an octave or a fifth tends to fuse into "one sound", about loudness differences across the frequency range, masking, phase, how partials change over time in real instruments (which have more than eight), or the enormous effects of musical context, training and culture on what people hear as consonant. A slow beat gets a low roughness score because it isn't rough, it's a wobble; that's why the list above shows slow beats first. The model is a good explanation of the shimmer and the dips, not a complete theory of consonance.</p>
+    <p><b>Stretched partials.</b> The stretch slider puts partial n at n<sup>s</sup> times the fundamental instead of n times. Real piano strings have slightly sharp upper partials (inharmonicity), which is one reason piano tuners stretch octaves a little; the stretch here is a simple, exaggerated stand-in for that kind of thing, not a model of a piano. When the partials move, the dips move with them, to s times their usual size in cents (the purple ticks). This is Sethares's central point: which intervals sound consonant depends on the timbre, and you can design one to suit the other.</p>
+  </details>
+</section>
+
+<!-- =================================================================
+     THE CHORD CLOCK
+     ================================================================= -->
+<section class="toy" id="clock">
+  <h2><span class="n">II.</span> The Chord Clock</h2>
+  <p class="lede">Music in the Western tradition uses 12 notes, and then the names repeat: go up 12 semitones from C and you are on C again, an octave higher. So the 12 notes can be drawn around a clock, each numbered by how many semitones it lies above C. If you forget which octave each note is in (musicians call what's left a <b>pitch class</b>), every chord becomes a <b>shape</b> on the clock, and shapes show things that note names hide.</p>
+  <ol class="how">
+    <li>Click dots to add or remove notes. <b>Play</b> sounds them one at a time from the bottom, then together.</li>
+    <li><b>◀ ▶</b> turn the shape one step: every note moves down or up a semitone. Musicians call this <i>transposing</i>. It changes the chord's name but not its sound quality.</li>
+    <li><b>Flip</b> mirrors the shape across the vertical C–F♯ line: note number k becomes 12 − k, so every interval that went up now goes down by the same amount. (Theorists call this <i>inversion</i>, which is unrelated to "inverting" a chord by changing its bass note.)</li>
+    <li><b>Show intervals</b> draws a line between every pair of notes, coloured by the interval between them.</li>
+  </ol>
+
+  <div class="try" id="clockTries"><b>Try this:</b></div>
+  <p class="trynote" id="clockNote"></p>
+
+  <div class="clockgrid">
+    <div class="card">
+      <h3>The clock</h3>
+      <svg id="clockSvg" viewBox="-215 -215 430 430" aria-label="pitch-class clock"></svg>
+      <div class="row" style="margin-top:6px">
+        <button id="rotL" title="←">◀</button><button id="rotR" title="→">▶</button>
+        <button id="flipBtn" title="F">⇆ Flip</button>
+        <button id="ckPlay" title="P">▶ Play</button>
+        <button id="ckRandom" title="a random chord with the same number of notes">🎲</button>
+        <button id="ckClear">Clear</button>
+        <label><input type="checkbox" id="showLines" checked> show intervals</label>
+      </div>
+      <p class="cap">Dashed red lines are mirror lines: flipping the shape across one of them leaves it unchanged.</p>
+    </div>
+
+    <div>
+      <div class="card">
+        <h3>This chord</h3>
+        <div id="ckNotes"></div>
+        <div id="ckNames"></div>
+        <div class="row" style="margin-top:6px"><button id="toLab">Hear its roughness in the Beat Lab ↑</button></div>
+      </div>
+      <div class="card">
+        <h3>Its shape</h3>
+        <div id="ckShape"></div>
+      </div>
+      <div class="card">
+        <h3>Intervals inside it</h3>
+        <div id="ckIv"></div>
+        <div id="ckZ"></div>
+      </div>
+      <div class="card">
+        <h3>How many chords like this?</h3>
+        <div id="ckCount"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3 id="galTitle">Every shape</h3>
+    <label><input type="checkbox" id="mirrorGal" checked> count a shape and its mirror image as the same shape</label>
+    <div id="galSum" class="cap"></div>
+    <div id="gallery"></div>
+  </div>
+
+  <details>
+    <summary>About the clock, and what it ignores</summary>
+    <p><b>What's thrown away.</b> The clock keeps only which of the 12 pitch classes are present. It forgets octaves (C E G and E G C are the same shape), which note is in the bass, how often a note is doubled, and spelling: on a piano C♯ and D♭ are the same key, but musicians write one or the other depending on the key they're in. The names on this page use one fixed spelling, so you'll see A♭ major rather than G♯ major. That loss of information is exactly why one shape can carry several chord names (C6 and Am7): in real music, the bass note and the context decide which reading is meant.</p>
+    <p><b>Where this comes from.</b> Treating chords as sets of pitch classes, equivalent under transposition and inversion, is the basis of musical set theory (Allen Forte, <i>The Structure of Atonal Music</i>, 1973). The 12 three-note shapes in the gallery are Forte's trichords 3-1 to 3-12, and pairs of different shapes with the same interval counts are his "Z-related" pairs. Shapes that land on themselves before a full turn are what Olivier Messiaen called modes of limited transposition (the whole-tone and octatonic scales are two of his).</p>
+    <p><b>The counting.</b> Burnside's lemma says that the number of different shapes equals the average, over all the moves you allow (12 rotations, or 12 rotations plus 12 flips), of the number of chords that the move leaves unchanged. A rotation by r steps splits the clock into gcd(r, 12) cycles, each 12/gcd(r, 12) long, and a chord is unchanged only if it is a union of whole cycles. A flip either passes through two opposite dots (fixing them and pairing up the other ten) or between dots (pairing up all twelve). The <i>How many chords like this?</i> panel shows the sum for the current number of notes.</p>
+  </details>
+</section>
+
+<details>
+  <summary>Keys and fine print</summary>
+  <p>Keys: <kbd>space</kbd> play/stop the Beat Lab · <kbd>←</kbd> <kbd>→</kbd> turn the clock · <kbd>F</kbd> flip · <kbd>P</kbd> play the clock.</p>
+  <p>Tuning: A4 = 440 Hz, so C4 = 261.63 Hz. The clock plays in equal temperament. Everything runs in this page; nothing is uploaded and nothing is recorded.</p>
+  <p>Sources: R. Plomp and W. J. M. Levelt, "Tonal consonance and critical bandwidth", <i>Journal of the Acoustical Society of America</i> 38 (1965). W. A. Sethares, "Local consonance and the relationship between timbre and scale", <i>JASA</i> 94 (1993), and <i>Tuning, Timbre, Spectrum, Scale</i> (2nd ed., 2005). A. Forte, <i>The Structure of Atonal Music</i> (1973).</p>
+</details>
+
+</main>
+
+<!-- =====================================================================
+     CORE: pure functions, no DOM.
+     ===================================================================== -->
+<script id="core">
+"use strict";
+
+function mod(a, n) { return ((a % n) + n) % n; }
+
+// ---------- pitch ----------
+
+const NOTE_NAMES = ["C", "C♯", "D", "E♭", "E", "F", "F♯", "G", "A♭", "A", "B♭", "B"];
+function midiToFreq(m) { return 440 * Math.pow(2, (m - 69) / 12); }          // MIDI 69 = A4
+function midiName(m) { return NOTE_NAMES[mod(m, 12)] + (Math.floor(m / 12) - 1); }  // MIDI 60 = C4
+function centsToRatio(c) { return Math.pow(2, c / 1200); }
+function ratioToCents(r) { return 1200 * Math.log2(r); }
+
+const ET_NAMES = ["unison", "minor 2nd", "major 2nd", "minor 3rd", "major 3rd", "perfect 4th", "tritone",
+  "perfect 5th", "minor 6th", "major 6th", "minor 7th", "major 7th", "octave", "minor 9th"];
+const ET_SHORT = ["P1", "m2", "M2", "m3", "M3", "P4", "TT", "P5", "m6", "M6", "m7", "M7", "P8", "m9"];
+
+// Whole-number ("just") ratios worth naming. cents is filled in below.
+const JUST = [
+  { p: 1, q: 1, name: "unison" },
+  { p: 16, q: 15, name: "just minor 2nd" },
+  { p: 9, q: 8, name: "just major 2nd" },
+  { p: 6, q: 5, name: "just minor 3rd" },
+  { p: 5, q: 4, name: "just major 3rd" },
+  { p: 4, q: 3, name: "just 4th" },
+  { p: 7, q: 5, name: "septimal tritone" },
+  { p: 3, q: 2, name: "just 5th" },
+  { p: 8, q: 5, name: "just minor 6th" },
+  { p: 5, q: 3, name: "just major 6th" },
+  { p: 7, q: 4, name: "harmonic 7th" },
+  { p: 9, q: 5, name: "just minor 7th" },
+  { p: 15, q: 8, name: "just major 7th" },
+  { p: 2, q: 1, name: "octave" },
+];
+JUST.forEach(j => { j.cents = ratioToCents(j.p / j.q); });
+
+function nearestET(c) {
+  const k = Math.max(0, Math.min(13, Math.round(c / 100)));
+  return { k: k, name: ET_NAMES[k], off: c - 100 * k };
+}
+
+// The named ratio closest to c cents, if it is within tol cents.
+function nearestJust(c, tol) {
+  let best = null;
+  for (const j of JUST) {
+    const off = c - j.cents;
+    if (Math.abs(off) <= tol && (!best || Math.abs(off) < Math.abs(best.off))) best = { j: j, off: off };
+  }
+  return best;
+}
+
+// ---------- partials and roughness ----------
+
+const MAX_PARTIAL_HZ = 16000;      // partials above this are dropped (inaudible to many, and near Nyquist)
+
+// A timbre is 8 partial loudnesses plus a stretch s: partial n sits at f * n^s.
+const TIMBRES = {
+  string:    { label: "string-like: every harmonic, fading as 1/n", amps: [1, 1/2, 1/3, 1/4, 1/5, 1/6, 1/7, 1/8], stretch: 1 },
+  sine:      { label: "pure sine: the fundamental only", amps: [1, 0, 0, 0, 0, 0, 0, 0], stretch: 1 },
+  hollow:    { label: "hollow: odd harmonics only", amps: [1, 0, 1/3, 0, 1/5, 0, 1/7, 0], stretch: 1 },
+  bright:    { label: "bright: all eight harmonics equally loud", amps: [1, 1, 1, 1, 1, 1, 1, 1], stretch: 1 },
+  stretched: { label: "stretched: 1/n, partials pushed sharp (s = 1.05)", amps: [1, 1/2, 1/3, 1/4, 1/5, 1/6, 1/7, 1/8], stretch: 1.05 },
+};
+
+function partialsOf(f, timbre) {
+  const out = [];
+  timbre.amps.forEach((a, i) => {
+    const n = i + 1, fn = f * Math.pow(n, timbre.stretch);
+    if (a > 0 && fn < MAX_PARTIAL_HZ) out.push({ n: n, f: fn, a: a });
+  });
+  return out;
+}
+
+// Plomp–Levelt roughness of two sine partials, in Sethares's parametrization.
+function pairRoughness(f1, a1, f2, a2) {
+  const lo = Math.min(f1, f2), df = Math.abs(f2 - f1);
+  const x = 0.24 * df / (0.0207 * lo + 18.96);
+  return Math.min(a1, a2) * 5 * (Math.exp(-3.51 * x) - Math.exp(-5.75 * x));
+}
+
+// Every pair of partials belonging to two different tones.
+// tones: [{ t, f, partials }]
+function crossPairs(tones) {
+  const out = [];
+  for (let i = 0; i < tones.length; i++) {
+    for (let j = i + 1; j < tones.length; j++) {
+      for (const p of tones[i].partials) {
+        for (const q of tones[j].partials) {
+          out.push({ ta: tones[i].t, tb: tones[j].t, p: p, q: q,
+                     df: Math.abs(p.f - q.f), d: pairRoughness(p.f, p.a, q.f, q.a) });
+        }
+      }
+    }
+  }
+  return out;
+}
+
+// Roughness of tone 1 plus a second tone at every whole cent from 0 to cmax.
+function roughnessCurve(f1, timbre, cmax) {
+  const P1 = partialsOf(f1, timbre), out = [];
+  for (let c = 0; c <= cmax; c++) {
+    const P2 = partialsOf(f1 * centsToRatio(c), timbre);
+    let r = 0;
+    for (const p of P1) for (const q of P2) r += pairRoughness(p.f, p.a, q.f, q.a);
+    out.push(r);
+  }
+  return out;
+}
+
+// A rough verbal guide to what a beat of df Hz sounds like.
+function beatKind(df) {
+  if (df < 0.01) return "locked";
+  if (df < 1) return "very slow swell";
+  if (df < 6) return "wobble";
+  if (df < 15) return "fast beating";
+  return "roughness";
+}
+
+// ---------- pitch-class sets ----------
+// A chord is a 12-bit mask: bit k set means pitch class k (k semitones above C) is present.
+
+const FULL = 0xFFF;
+function maskOf(pcs) { let m = 0; for (const p of pcs) m |= 1 << mod(p, 12); return m; }
+function pcsOf(m) { const out = []; for (let k = 0; k < 12; k++) if ((m >> k) & 1) out.push(k); return out; }
+function sizeOf(m) { let n = 0; for (let k = 0; k < 12; k++) n += (m >> k) & 1; return n; }
+
+// Transpose up r semitones: a rotation of the 12 bits.
+function rotateMask(m, r) {
+  r = mod(r, 12);
+  return ((m << r) | (m >>> (12 - r))) & FULL;
+}
+// Mirror across the C–F♯ line: k -> -k.
+function invertMask(m) {
+  let out = 0;
+  for (let k = 0; k < 12; k++) if ((m >> k) & 1) out |= 1 << mod(-k, 12);
+  return out;
+}
+// The general flip k -> j - k (mirror line through positions j/2 and j/2 + 6).
+function reflectMask(m, j) { return rotateMask(invertMask(m), j); }
+
+// One number per shape: the smallest mask among all its rotations (and flips).
+function canonical(m, mirror) {
+  let best = m;
+  for (let r = 0; r < 12; r++) {
+    best = Math.min(best, rotateMask(m, r));
+    if (mirror) best = Math.min(best, reflectMask(m, r));
+  }
+  return best;
+}
+
+// Order two forms: smaller span first, then lexicographically.
+function compareForms(a, b) {
+  const pa = pcsOf(a), pb = pcsOf(b);
+  const sa = pa.length ? pa[pa.length - 1] : 0, sb = pb.length ? pb[pb.length - 1] : 0;
+  if (sa !== sb) return sa - sb;
+  for (let i = 0; i < Math.min(pa.length, pb.length); i++) if (pa[i] !== pb[i]) return pa[i] - pb[i];
+  return 0;
+}
+
+// The most tightly packed version of a shape that starts on C (0).
+function compactForm(m, mirror) {
+  if (m === 0) return 0;
+  let best = null;
+  for (let r = 0; r < 12; r++) {
+    const cands = [rotateMask(m, r)];
+    if (mirror) cands.push(reflectMask(m, r));
+    for (const c of cands) if ((c & 1) && (best === null || compareForms(c, best) < 0)) best = c;
+  }
+  return best;
+}
+
+// The note to read the chord from: the one after the biggest gap
+// (so C E G starts on C and A C E starts on A). Ties go to the lowest number.
+function startOf(m) {
+  let best = null, bestForm = null;
+  for (const p of pcsOf(m)) {
+    const f = rotateMask(m, -p);
+    if (bestForm === null || compareForms(f, bestForm) < 0) { best = p; bestForm = f; }
+  }
+  return best;
+}
+
+// Steps between neighbouring notes, clockwise from the start. They sum to 12.
+function stepsOf(m) {
+  const rel = pcsOf(rotateMask(m, -startOf(m)));
+  return rel.map((r, i) => (i + 1 < rel.length ? rel[i + 1] : 12) - r);
+}
+
+// How many pairs of notes lie 1, 2, ..., 6 steps apart (counted the short way round).
+function intervalVector(m) {
+  const p = pcsOf(m), v = [0, 0, 0, 0, 0, 0];
+  for (let i = 0; i < p.length; i++) {
+    for (let j = i + 1; j < p.length; j++) {
+      const d = p[j] - p[i];
+      v[Math.min(d, 12 - d) - 1]++;
+    }
+  }
+  return v;
+}
+
+function rotationalSymmetries(m) {
+  const out = [];
+  for (let r = 1; r < 12; r++) if (rotateMask(m, r) === m) out.push(r);
+  return out;
+}
+function mirrorAxes(m) {
+  const out = [];
+  for (let j = 0; j < 12; j++) if (reflectMask(m, j) === m) out.push(j);
+  return out;
+}
+
+// Other shapes (not rotations or flips of this one) with the same interval vector.
+function zTwins(m) {
+  const k = sizeOf(m), v = intervalVector(m).join(), own = canonical(m, true), found = new Map();
+  for (let x = 0; x < 4096; x++) {
+    if (sizeOf(x) !== k) continue;
+    const key = canonical(x, true);
+    if (key === own || found.has(key)) continue;
+    if (intervalVector(x).join() === v) found.set(key, compactForm(x, true));
+  }
+  return Array.from(found.values());
+}
+
+// ---------- names ----------
+
+const TEMPLATES = [
+  { kind: "chord", sym: "",        name: "major triad",               pcs: [0, 4, 7] },
+  { kind: "chord", sym: "m",       name: "minor triad",               pcs: [0, 3, 7] },
+  { kind: "chord", sym: "°",       name: "diminished triad",          pcs: [0, 3, 6] },
+  { kind: "chord", sym: "+",       name: "augmented triad",           pcs: [0, 4, 8] },
+  { kind: "chord", sym: "sus2",    name: "suspended 2nd",             pcs: [0, 2, 7] },
+  { kind: "chord", sym: "sus4",    name: "suspended 4th",             pcs: [0, 5, 7] },
+  { kind: "chord", sym: "5",       name: "power chord (no third)",    pcs: [0, 7] },
+  { kind: "chord", sym: "maj7",    name: "major seventh",             pcs: [0, 4, 7, 11] },
+  { kind: "chord", sym: "7",       name: "dominant seventh",          pcs: [0, 4, 7, 10] },
+  { kind: "chord", sym: "m7",      name: "minor seventh",             pcs: [0, 3, 7, 10] },
+  { kind: "chord", sym: "ø7",      name: "half-diminished seventh",   pcs: [0, 3, 6, 10] },
+  { kind: "chord", sym: "°7",      name: "diminished seventh",        pcs: [0, 3, 6, 9] },
+  { kind: "chord", sym: "m(maj7)", name: "minor-major seventh",       pcs: [0, 3, 7, 11] },
+  { kind: "chord", sym: "+maj7",   name: "augmented major seventh",   pcs: [0, 4, 8, 11] },
+  { kind: "chord", sym: "6",       name: "major sixth",               pcs: [0, 4, 7, 9] },
+  { kind: "chord", sym: "m6",      name: "minor sixth",               pcs: [0, 3, 7, 9] },
+  { kind: "chord", sym: "9",       name: "dominant ninth",            pcs: [0, 2, 4, 7, 10] },
+  { kind: "chord", sym: "maj9",    name: "major ninth",               pcs: [0, 2, 4, 7, 11] },
+  { kind: "chord", sym: "m9",      name: "minor ninth",               pcs: [0, 2, 3, 7, 10] },
+  { kind: "scale", name: "major pentatonic scale",          pcs: [0, 2, 4, 7, 9] },
+  { kind: "scale", name: "minor pentatonic scale",          pcs: [0, 3, 5, 7, 10] },
+  { kind: "scale", name: "major scale",                     pcs: [0, 2, 4, 5, 7, 9, 11] },
+  { kind: "scale", name: "natural minor scale",             pcs: [0, 2, 3, 5, 7, 8, 10] },
+  { kind: "scale", name: "harmonic minor scale",            pcs: [0, 2, 3, 5, 7, 8, 11] },
+  { kind: "scale", name: "melodic minor scale (ascending)", pcs: [0, 2, 3, 5, 7, 9, 11] },
+  { kind: "scale", name: "whole-tone scale",                pcs: [0, 2, 4, 6, 8, 10] },
+  { kind: "scale", name: "octatonic scale",                 pcs: [0, 1, 3, 4, 6, 7, 9, 10] },
+  { kind: "scale", name: "chromatic scale",                 pcs: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] },
+];
+const TEMPLATE_MASKS = TEMPLATES.map(t => maskOf(t.pcs));
+
+// Every named chord or scale with exactly these pitch classes, grouped by kind.
+function namesOf(m) {
+  const out = [];
+  TEMPLATES.forEach((t, i) => {
+    const roots = [];
+    for (let r = 0; r < 12; r++) if (rotateMask(TEMPLATE_MASKS[i], r) === m) roots.push(r);
+    if (roots.length) out.push({ t: t, roots: roots });
+  });
+  return out;
+}
+
+// Names of the shape, whatever note it starts on.
+function classNames(m, mirror) {
+  const key = canonical(m, mirror), out = [];
+  TEMPLATES.forEach((t, i) => {
+    if (canonical(TEMPLATE_MASKS[i], mirror) === key && !out.includes(t.name)) out.push(t.name);
+  });
+  return out;
+}
+
+// ---------- counting ----------
+
+function binom(n, k) {
+  if (k < 0 || k > n) return 0;
+  let r = 1;
+  for (let i = 1; i <= k; i++) r = r * (n - k + i) / i;
+  return Math.round(r);
+}
+function gcd(a, b) { return b === 0 ? a : gcd(b, a % b); }
+
+// Chords of k notes left unchanged by rotating r steps: unions of whole cycles.
+function rotationFixes(r, k) {
+  const d = gcd(r, 12), len = 12 / d;          // d cycles, each len long
+  return k % len === 0 ? binom(d, k / len) : 0;
+}
+// A flip through two opposite dots fixes those 2 and pairs up the other 10.
+function flipFixesThrough(k) {
+  let s = 0;
+  for (let i = 0; i <= 2; i++) if (k - i >= 0 && (k - i) % 2 === 0) s += binom(2, i) * binom(5, (k - i) / 2);
+  return s;
+}
+// A flip between dots pairs up all 12.
+function flipFixesBetween(k) { return k % 2 === 0 ? binom(6, k / 2) : 0; }
+
+// Burnside's lemma: the average number of chords each allowed move leaves unchanged.
+function countShapes(k, mirror) {
+  let s = 0;
+  for (let r = 0; r < 12; r++) s += rotationFixes(r, k);
+  if (!mirror) return s / 12;
+  return (s + 6 * flipFixesThrough(k) + 6 * flipFixesBetween(k)) / 24;
+}
+
+// The same count by brute force, keeping one compact representative per shape
+// and how many chords have that shape.
+function allClasses(k, mirror) {
+  const seen = new Map();
+  for (let m = 0; m < 4096; m++) {
+    if (sizeOf(m) !== k) continue;
+    const key = canonical(m, mirror);
+    let c = seen.get(key);
+    if (!c) { c = { key: key, count: 0, rep: compactForm(m, mirror) }; seen.set(key, c); }
+    c.count++;
+  }
+  return Array.from(seen.values()).sort((a, b) => compareForms(a.rep, b.rep));
+}
+</script>
+
+<!-- =====================================================================
+     APP: audio, drawing, controls.
+     ===================================================================== -->
+<script id="app">
+"use strict";
+
+const $ = id => document.getElementById(id);
+const NS = "http://www.w3.org/2000/svg";
+const TONE_COLORS = ["#c8452e", "#2b5fa8", "#2f8046", "#9a5f1c"];
+const LOCK_COLOR = "#2f8046", BEAT_COLOR = "#c8452e", STRETCH_COLOR = "#7a3fa0";
+const CMAX = 1300;     // the curve and the sliders run from 0 to 1300 cents
+
+function el(tag, attrs, parent) {
+  const e = document.createElementNS(NS, tag);
+  for (const a in attrs) e.setAttribute(a, attrs[a]);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+function fmtCents(x) { return Math.abs(x).toFixed(1); }
+
+// Size a canvas to its CSS box at device resolution and clear it.
+function prep(c) {
+  const dpr = window.devicePixelRatio || 1;
+  const w = Math.max(1, Math.round(c.clientWidth * dpr)), h = Math.max(1, Math.round(c.clientHeight * dpr));
+  if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }
+  const g = c.getContext("2d");
+  g.clearRect(0, 0, w, h);
+  return { g: g, w: w, h: h, dpr: dpr };
+}
+
+// =====================================================================
+// AUDIO
+// =====================================================================
+
+const audio = { ctx: null, master: null, voices: [], pluckWave: null };
+
+function ctx() {
+  if (!audio.ctx) audio.ctx = new (window.AudioContext || window.webkitAudioContext)();
+  return audio.ctx;
+}
+
+// The drone: 4 tones x 8 partials, one sine oscillator each, all running at
+// zero volume until needed. Separate oscillators (rather than one complex wave
+// per tone) are what make stretched, non-harmonic partials possible.
+function ensureDrone() {
+  if (audio.master) return;
+  const a = ctx();
+  audio.master = a.createGain();
+  audio.master.gain.value = 0;
+  audio.master.connect(a.destination);
+  for (let t = 0; t < 4; t++) {
+    const partials = [];
+    for (let n = 1; n <= 8; n++) {
+      const o = a.createOscillator(), g = a.createGain();
+      o.frequency.value = 440;
+      g.gain.value = 0;
+      o.connect(g);
+      g.connect(audio.master);
+      o.start();
+      partials.push({ o: o, g: g });
+    }
+    audio.voices.push(partials);
+  }
+}
+
+function syncDrone() {
+  if (!audio.master) return;
+  const now = audio.ctx.currentTime, s = lab.timbre.stretch;
+  let total = 0;
+  lab.tones.forEach((tone, t) => {
+    const f = toneFreq(t);
+    audio.voices[t].forEach((v, i) => {
+      const fn = f * Math.pow(i + 1, s);
+      const amp = tone.on && fn < MAX_PARTIAL_HZ ? lab.timbre.amps[i] : 0;
+      total += amp;
+      v.o.frequency.setTargetAtTime(Math.min(fn, MAX_PARTIAL_HZ), now, 0.015);
+      v.g.gain.setTargetAtTime(amp, now, 0.02);
+    });
+  });
+  // Scale so that even if every partial peaks together the output stays below 1.
+  const level = lab.playing && total > 0 ? 0.7 * lab.volume / Math.max(total, 1) : 0;
+  audio.master.gain.setTargetAtTime(level, now, 0.03);
+}
+
+// A plucked note for the clock: harmonics 1..8 at 1/n, quick attack, slow decay.
+function pluck(midi, when, dur, level) {
+  const a = ctx();
+  if (!audio.pluckWave) {
+    const real = new Float32Array(9), imag = new Float32Array(9);
+    for (let n = 1; n <= 8; n++) imag[n] = 1 / n;
+    audio.pluckWave = a.createPeriodicWave(real, imag);
+  }
+  const o = a.createOscillator(), g = a.createGain();
+  o.setPeriodicWave(audio.pluckWave);
+  o.frequency.value = midiToFreq(midi);
+  g.gain.setValueAtTime(0, when);
+  g.gain.linearRampToValueAtTime(level, when + 0.01);
+  g.gain.exponentialRampToValueAtTime(0.0005, when + dur);
+  o.connect(g);
+  g.connect(a.destination);
+  o.start(when);
+  o.stop(when + dur + 0.05);
+}
+
+// =====================================================================
+// THE BEAT LAB
+// =====================================================================
+
+const lab = {
+  root: 60,
+  tones: [{ on: true, cents: 0 }, { on: true, cents: 400 }, { on: false, cents: 700 }, { on: false, cents: 1000 }],
+  timbreKey: "string",
+  timbre: { amps: TIMBRES.string.amps.slice(), stretch: 1 },
+  playing: false,
+  volume: 0.5,
+  curve: null, curveKey: "", curveMax: 1,
+};
+
+function toneFreq(t) { return midiToFreq(lab.root) * centsToRatio(lab.tones[t].cents); }
+
+function activeTones() {
+  const out = [];
+  lab.tones.forEach((tone, t) => {
+    if (tone.on) { const f = toneFreq(t); out.push({ t: t, f: f, partials: partialsOf(f, lab.timbre) }); }
+  });
+  return out;
+}
+
+function setTimbre(key) {
+  lab.timbreKey = key;
+  if (TIMBRES[key]) lab.timbre = { amps: TIMBRES[key].amps.slice(), stretch: TIMBRES[key].stretch };
+}
+
+// ---------- the "Try this" presets ----------
+
+const LAB_TRIES = [
+  { label: "Equal-tempered major third", root: 60, tones: [400], timbre: "string",
+    note: "C4 and E4 as a piano tunes them: 400 cents. Tone 1's 5th partial (1308.1 Hz) and tone 2's 4th partial (1318.5 Hz) are 10.4 Hz apart, so the sound shimmers about ten times a second. Find the red link in the <i>Partials</i> view and the beat at the top of <i>Who is beating whom</i>." },
+  { label: "Just major third, 5:4", root: 60, tones: [ratioToCents(5 / 4)], timbre: "string",
+    note: "The same third tuned to the whole-number ratio 5:4: 386.3 cents, 13.7 cents lower than the piano's. Now tone 1's 5th partial and tone 2's 4th partial are at exactly the same frequency (the green link) and the shimmer stops. On the curve, tone 2 sits at the bottom of a dip. Go back and forth between this and the previous button." },
+  { label: "…the same third with pure sine tones", root: 60, tones: [400], timbre: "sine",
+    note: "The equal-tempered third again, but each tone is now a single sine wave. With no upper partials there is nothing to collide: no shimmer, and the curve has no dip at 5:4 or anywhere else. With these tones 386 and 400 cents sound about equally smooth (the model even rates 400 slightly smoother). Whether the piano's third is \"out of tune\" depends on the timbre." },
+  { label: "Equal-tempered fifth (slow)", root: 60, tones: [700], timbre: "string",
+    note: "C4 and G4: 700 cents, against 701.96 for the whole-number ratio 3:2. Tone 1's 3rd partial and tone 2's 2nd partial are only 0.9 Hz apart, so the sound swells slowly, about once a second. Listen for several seconds. This tiny mismatch is why the fifth is the piano's best-behaved interval." },
+  { label: "C major, piano tuning", root: 60, tones: [400, 700], timbre: "string",
+    note: "C E G at 0, 400 and 700 cents. Several red links: the third beats against the root, and also against the fifth. Note the roughness number under the curve." },
+  { label: "C major, 4:5:6", root: 60, tones: [ratioToCents(5 / 4), ratioToCents(3 / 2)], timbre: "string",
+    note: "The same chord in just intonation: frequencies in the ratio 4:5:6 (0, 386.3 and 702.0 cents). The beating pairs lock into place as green links and the roughness drops. This is exactly the 4th, 5th and 6th harmonics of a single low C." },
+  { label: "Dominant seventh, piano", root: 60, tones: [400, 700, 1000], timbre: "string",
+    note: "C E G B♭ in equal temperament. Lots of interacting partials: this is the chord that, in traditional harmony, \"wants\" to move on." },
+  { label: "Harmonic seventh, 4:5:6:7", root: 60, tones: [ratioToCents(5 / 4), ratioToCents(3 / 2), ratioToCents(7 / 4)], timbre: "string",
+    note: "Harmonics 4, 5, 6 and 7 of one note. The seventh is at 968.8 cents, 31 cents flatter than the piano's minor seventh, so no piano can play this chord. Compare the roughness number with the previous button, and listen to how much calmer it is." },
+  { label: "Stretched partials", root: 60, tones: [1200], timbre: "stretched",
+    note: "Now partial n sits at n<sup>1.05</sup> times the fundamental, so the 2nd partial is at 2.07×, 60 cents above an octave. A true 2:1 octave (where tone 2 is now) beats! Drag tone 2 along the curve to the purple tick near 1260 cents and it smooths out again. Every dip has moved: consonance followed the timbre." },
+  { label: "Low and muddy", root: 36, tones: [400], timbre: "string",
+    note: "The same equal-tempered major third, two octaves lower (C2). Look at the curve: roughness now spreads across a much wider range of intervals, because at low pitch the partials are closer together in hertz than the ear can cleanly separate. This is why arrangers avoid close thirds in the bass. Then drag the tone 1 slider up to C5." },
+];
+
+function applyLabTry(p) {
+  lab.root = p.root;
+  lab.tones.forEach((tone, t) => {
+    if (t === 0) return;
+    const c = p.tones[t - 1];
+    tone.on = c !== undefined;
+    if (tone.on) tone.cents = c;
+  });
+  setTimbre(p.timbre);
+  writeLabControls();
+  labChanged();
+  $("labNote").innerHTML = p.note;
+  startDrone();
+}
+
+// ---------- controls ----------
+
+function buildLabControls() {
+  // tone rows 2..4
+  const box = $("toneRows");
+  for (let t = 1; t < 4; t++) {
+    const d = document.createElement("div");
+    d.className = "tone";
+    let opts = '<option value="">jump to an interval…</option><optgroup label="Piano (equal-tempered)">';
+    for (let k = 1; k <= 12; k++) opts += '<option value="' + (100 * k) + '">' + ET_NAMES[k] + " (" + (100 * k) + " ¢)</option>";
+    opts += '</optgroup><optgroup label="Whole-number ratios (just)">';
+    JUST.slice(1).forEach(j => { opts += '<option value="' + j.cents + '">' + j.p + ":" + j.q + " " + j.name + " (" + j.cents.toFixed(1) + " ¢)</option>"; });
+    opts += "</optgroup>";
+    d.innerHTML =
+      '<div class="tonehead"><label><input type="checkbox" id="on' + t + '"> <span class="chip" style="background:' + TONE_COLORS[t] + '"></span> <b>tone ' + (t + 1) + "</b></label>" +
+      '<select id="snap' + t + '">' + opts + "</select></div>" +
+      '<div class="row"><button id="dn' + t + '" title="one cent lower">‹</button>' +
+      '<input type="range" id="c' + t + '" min="0" max="' + CMAX + '" step="any">' +
+      '<button id="up' + t + '" title="one cent higher">›</button></div>' +
+      '<div class="readout" id="ro' + t + '"></div>';
+    box.appendChild(d);
+
+    $("on" + t).addEventListener("change", e => { lab.tones[t].on = e.target.checked; labChanged(); });
+    $("c" + t).addEventListener("input", e => { lab.tones[t].cents = +e.target.value; lab.tones[t].on = true; $("on" + t).checked = true; labChanged(); });
+    $("dn" + t).addEventListener("click", () => nudge(t, -1));
+    $("up" + t).addEventListener("click", () => nudge(t, 1));
+    $("snap" + t).addEventListener("change", e => {
+      if (e.target.value === "") return;
+      lab.tones[t].cents = +e.target.value;
+      lab.tones[t].on = true;
+      e.target.value = "";
+      writeLabControls();
+      labChanged();
+    });
+  }
+
+  // timbre presets
+  $("timbre").innerHTML = Object.keys(TIMBRES).map(k => '<option value="' + k + '">' + TIMBRES[k].label + "</option>").join("") +
+    '<option value="custom">custom: your own</option>';
+  $("timbre").addEventListener("change", e => { setTimbre(e.target.value); writeLabControls(); labChanged(); });
+  $("stretch").addEventListener("input", e => { lab.timbre.stretch = +e.target.value; lab.timbreKey = "custom"; $("timbre").value = "custom"; labChanged(); });
+
+  $("root").addEventListener("input", e => { lab.root = +e.target.value; labChanged(); });
+  $("vol").addEventListener("input", e => { lab.volume = +e.target.value; syncDrone(); });
+  $("playBtn").addEventListener("click", () => (lab.playing ? stopDrone() : startDrone()));
+
+  // try buttons
+  LAB_TRIES.forEach(p => {
+    const b = document.createElement("button");
+    b.textContent = p.label;
+    b.addEventListener("click", () => applyLabTry(p));
+    $("labTries").appendChild(b);
+  });
+
+  // dragging the partial bars
+  let dragging = false;
+  const setAmp = e => {
+    const c = $("ampsView"), rect = c.getBoundingClientRect();
+    const L = ampsLayout(rect.width, rect.height);
+    const x = e.clientX - rect.left, y = e.clientY - rect.top;
+    const i = Math.max(0, Math.min(7, Math.floor((x - L.gap / 2) / (L.bw + L.gap))));
+    let a = (L.base - y) / (L.base - L.top);
+    a = Math.max(0, Math.min(1, a));
+    if (a < 0.04) a = 0;
+    lab.timbre.amps[i] = a;
+    lab.timbreKey = "custom";
+    $("timbre").value = "custom";
+    labChanged();
+  };
+  $("ampsView").addEventListener("pointerdown", e => { dragging = true; $("ampsView").setPointerCapture(e.pointerId); setAmp(e); });
+  $("ampsView").addEventListener("pointermove", e => { if (dragging) setAmp(e); });
+  $("ampsView").addEventListener("pointerup", () => { dragging = false; });
+  $("ampsView").addEventListener("pointercancel", () => { dragging = false; });
+
+  // dragging on the curve
+  let curveTone = 0;
+  $("curveView").addEventListener("pointerdown", e => {
+    const c = $("curveView"), L = curveLayout(c.clientWidth, c.clientHeight), x = e.clientX - c.getBoundingClientRect().left;
+    curveTone = 0;
+    let best = Infinity;
+    for (let t = 1; t < 4; t++) {
+      if (!lab.tones[t].on) continue;
+      const d = Math.abs(L.X(lab.tones[t].cents) - x);
+      if (d < best) { best = d; curveTone = t; }
+    }
+    if (!curveTone) curveTone = 1;
+    c.setPointerCapture(e.pointerId);
+    moveOnCurve(e, curveTone);
+  });
+  $("curveView").addEventListener("pointermove", e => { if (curveTone) moveOnCurve(e, curveTone); });
+  $("curveView").addEventListener("pointerup", () => { curveTone = 0; });
+  $("curveView").addEventListener("pointercancel", () => { curveTone = 0; });
+}
+
+function nudge(t, d) {
+  lab.tones[t].cents = Math.max(0, Math.min(CMAX, lab.tones[t].cents + d));
+  lab.tones[t].on = true;
+  writeLabControls();
+  labChanged();
+}
+
+function snapTargets() {
+  const out = [];
+  for (let k = 0; k <= 13; k++) out.push(100 * k);
+  JUST.forEach(j => out.push(j.cents));
+  if (lab.timbre.stretch !== 1) JUST.forEach(j => out.push(j.cents * lab.timbre.stretch));
+  return out.filter(c => c <= CMAX);
+}
+
+function moveOnCurve(e, t) {
+  const c = $("curveView"), L = curveLayout(c.clientWidth, c.clientHeight);
+  let cents = (e.clientX - c.getBoundingClientRect().left - L.L) / (L.R - L.L) * CMAX;
+  cents = Math.max(0, Math.min(CMAX, cents));
+  const tol = 6 / (L.R - L.L) * CMAX;      // snap within 6 pixels
+  let best = null;
+  for (const s of snapTargets()) if (Math.abs(s - cents) < tol && (best === null || Math.abs(s - cents) < Math.abs(best - cents))) best = s;
+  if (best !== null) cents = best;
+  lab.tones[t].cents = cents;
+  lab.tones[t].on = true;
+  writeLabControls();
+  labChanged();
+}
+
+function writeLabControls() {
+  $("root").value = lab.root;
+  for (let t = 1; t < 4; t++) {
+    $("on" + t).checked = lab.tones[t].on;
+    $("c" + t).value = lab.tones[t].cents;
+  }
+  $("timbre").value = lab.timbreKey;
+  $("stretch").value = lab.timbre.stretch;
+  $("vol").value = lab.volume;
+}
+
+function startDrone() {
+  ensureDrone();
+  ctx().resume();
+  lab.playing = true;
+  $("playBtn").textContent = "■ Stop";
+  $("playBtn").classList.add("on");
+  syncDrone();
+}
+
+function stopDrone() {
+  lab.playing = false;
+  $("playBtn").textContent = "▶ Play";
+  $("playBtn").classList.remove("on");
+  syncDrone();
+}
+
+// ---------- the update pipeline ----------
+
+function labChanged() {
+  const key = lab.root + "|" + lab.timbre.amps.join(",") + "|" + lab.timbre.stretch;
+  if (key !== lab.curveKey) {
+    lab.curve = roughnessCurve(midiToFreq(lab.root), lab.timbre, CMAX);
+    lab.curveMax = Math.max(1e-9, ...lab.curve);
+    lab.curveKey = key;
+  }
+  const active = activeTones(), pairs = crossPairs(active);
+  writeReadouts();
+  drawAmps();
+  drawCurve();
+  drawLadder(active, pairs);
+  renderBeats(active, pairs);
+  syncDrone();
+}
+
+function writeReadouts() {
+  $("ro0").innerHTML = '<span class="num">' + midiName(lab.root) + " · " + midiToFreq(lab.root).toFixed(2) + " Hz</span>";
+  for (let t = 1; t < 4; t++) {
+    const c = lab.tones[t].cents, et = nearestET(c), jt = nearestJust(c, 20);
+    let s = '<span class="num">' + toneFreq(t).toFixed(2) + " Hz · " + c.toFixed(1) + " ¢</span> above tone 1<br>";
+    s += Math.abs(et.off) < 0.05 ? "exactly the piano's " + et.name
+       : fmtCents(et.off) + " ¢ " + (et.off > 0 ? "above" : "below") + " the piano's " + et.name;
+    if (jt) {
+      const r = jt.j.p + ":" + jt.j.q;
+      s += Math.abs(jt.off) < 0.05 ? " · exactly " + r : " · " + fmtCents(jt.off) + " ¢ " + (jt.off > 0 ? "above " : "below ") + r;
+    }
+    $("ro" + t).innerHTML = s;
+    $("ro" + t).style.opacity = lab.tones[t].on ? 1 : 0.45;
+  }
+  const s = lab.timbre.stretch;
+  $("stretchCap").innerHTML = Math.abs(s - 1) < 1e-9
+    ? "s = 1.000: harmonic. Partial n is exactly n times the fundamental."
+    : "s = " + s.toFixed(3) + ": partial n sits at n<sup>" + s.toFixed(3) + "</sup> times the fundamental, so the 2nd partial is " +
+      fmtCents(1200 * (s - 1)) + " ¢ " + (s > 1 ? "above" : "below") + " an octave.";
+}
+
+// ---------- drawing: partial loudness bars ----------
+
+function ampsLayout(w, h) {
+  const gap = 0.012 * w + 4, bw = (w - gap * 9) / 8;
+  return { gap: gap, bw: bw, top: 16, base: h - 18 };
+}
+
+function drawAmps() {
+  const c = $("ampsView"), { g, w, h, dpr } = prep(c);
+  g.scale(dpr, dpr);
+  const W = w / dpr, H = h / dpr, L = ampsLayout(W, H);
+  g.font = "11px Georgia, serif";
+  g.textAlign = "center";
+  lab.timbre.amps.forEach((a, i) => {
+    const x = L.gap + i * (L.bw + L.gap);
+    g.fillStyle = "#efe8d6";
+    g.fillRect(x, L.top, L.bw, L.base - L.top);
+    g.fillStyle = "#1f1c18";
+    g.fillRect(x, L.base - a * (L.base - L.top), L.bw, a * (L.base - L.top));
+    g.fillStyle = "#786f60";
+    g.fillText(String(i + 1), x + L.bw / 2, H - 4);
+    if (a > 0) g.fillText(a.toFixed(2), x + L.bw / 2, L.base - a * (L.base - L.top) - 4);
+  });
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  const s = lab.timbre.stretch;
+  $("ampsCap").innerHTML = "Bars: how loud partials 1 to 8 are (drag them). " + (Math.abs(s - 1) < 1e-9
+    ? "Partial n is at n times the tone's frequency."
+    : "Partial frequencies, as multiples of the fundamental: " + [1, 2, 3, 4, 5, 6, 7, 8].map(n => Math.pow(n, s).toFixed(2)).join(", ") + ".");
+}
+
+// ---------- drawing: the roughness curve ----------
+
+function curveLayout(w, h) {
+  const L = 10, R = w - 10, T = 30, B = h - 36;
+  return { L: L, R: R, T: T, B: B, X: c => L + c / CMAX * (R - L) };
+}
+
+function drawCurve() {
+  const c = $("curveView"), { g, w, h, dpr } = prep(c);
+  g.scale(dpr, dpr);
+  const W = w / dpr, H = h / dpr, Lo = curveLayout(W, H), X = Lo.X;
+  const Y = r => Lo.B - r / lab.curveMax * (Lo.B - Lo.T) * 0.95;
+
+  // the 12 piano intervals
+  g.font = "11px Georgia, serif";
+  g.textAlign = "center";
+  for (let k = 0; k <= 13; k++) {
+    const x = X(100 * k);
+    g.strokeStyle = "#e3dccb";
+    g.lineWidth = 1;
+    g.beginPath(); g.moveTo(x, Lo.T - 4); g.lineTo(x, Lo.B); g.stroke();
+    g.fillStyle = "#786f60";
+    g.fillText(ET_SHORT[k], x, Lo.T - 10);
+  }
+
+  // whole-number ratios, in two staggered rows so labels don't collide
+  JUST.forEach((j, i) => {
+    const x = X(j.cents), row = i % 2;
+    g.strokeStyle = LOCK_COLOR;
+    g.beginPath(); g.moveTo(x, Lo.B); g.lineTo(x, Lo.B + 5 + row * 12); g.stroke();
+    g.fillStyle = LOCK_COLOR;
+    g.fillText(j.p + ":" + j.q, x, Lo.B + 15 + row * 12);
+  });
+
+  // where the ratios move to when the partials are stretched
+  const s = lab.timbre.stretch;
+  if (Math.abs(s - 1) > 1e-9) {
+    g.strokeStyle = STRETCH_COLOR;
+    g.lineWidth = 2;
+    JUST.forEach(j => {
+      const cs = j.cents * s;
+      if (cs > CMAX) return;
+      g.beginPath(); g.moveTo(X(cs), Lo.B - 9); g.lineTo(X(cs), Lo.B); g.stroke();
+    });
+    const oct = 1200 * s;
+    if (oct <= CMAX) { g.fillStyle = STRETCH_COLOR; g.fillText("stretched 2:1", X(oct), Lo.B - 13); }
+  }
+
+  // the curve, filled underneath
+  g.beginPath();
+  g.moveTo(X(0), Lo.B);
+  lab.curve.forEach((r, i) => g.lineTo(X(i), Y(r)));
+  g.lineTo(X(CMAX), Lo.B);
+  g.closePath();
+  g.fillStyle = "rgba(31,28,24,0.07)";
+  g.fill();
+  g.beginPath();
+  lab.curve.forEach((r, i) => (i ? g.lineTo(X(i), Y(r)) : g.moveTo(X(i), Y(r))));
+  g.strokeStyle = "#1f1c18";
+  g.lineWidth = 1.6;
+  g.stroke();
+
+  // the tones that are on
+  for (let t = 1; t < 4; t++) {
+    if (!lab.tones[t].on) continue;
+    const cents = lab.tones[t].cents, x = X(cents), y = Y(lab.curve[Math.round(cents)]);
+    g.strokeStyle = TONE_COLORS[t];
+    g.lineWidth = 2;
+    g.beginPath(); g.moveTo(x, Lo.T); g.lineTo(x, Lo.B); g.stroke();
+    g.fillStyle = TONE_COLORS[t];
+    g.beginPath(); g.arc(x, y, 5, 0, 2 * Math.PI); g.fill();
+    g.font = "bold 12px Georgia, serif";
+    g.fillText(String(t + 1), x + 10, y - 6);
+    g.font = "11px Georgia, serif";
+  }
+  g.setTransform(1, 0, 0, 1, 0, 0);
+}
+
+// ---------- drawing: partials on a log-frequency axis ----------
+
+// Which cross-tone pairs are worth showing: slow beats between audible partials,
+// or anything that contributes noticeably to roughness.
+function interacting(pairs) {
+  return pairs.filter(p => p.df >= 0.01 && ((p.df < 20 && Math.min(p.p.a, p.q.a) >= 0.02) || p.d >= 0.02));
+}
+// Slow beats first (by rate), then the rest (by roughness).
+function orderInteracting(list) {
+  return list.slice().sort((a, b) => {
+    const sa = a.df < 20, sb = b.df < 20;
+    if (sa !== sb) return sa ? -1 : 1;
+    return sa ? a.df - b.df : b.d - a.d;
+  });
+}
+
+function drawLadder(active, pairs) {
+  const c = $("ladderView"), rowH = 46, top = 10, axisH = 22;
+  c.style.height = (top + rowH * active.length + axisH) + "px";
+  const { g, w, h, dpr } = prep(c);
+  g.scale(dpr, dpr);
+  const W = w / dpr, L = 28, R = W - 10;
+  let fmax = 0;
+  for (const tn of active) for (const p of tn.partials) fmax = Math.max(fmax, p.f);
+  const fmin = midiToFreq(lab.root) / 1.15;
+  fmax = Math.max(fmax * 1.1, fmin * 2);
+  const X = f => L + Math.log2(f / fmin) / Math.log2(fmax / fmin) * (R - L);
+  const base = i => top + (i + 1) * rowH;
+  const tickH = a => a * rowH * 0.78;
+  const row = new Map();
+  active.forEach((tn, i) => row.set(tn.t, i));
+
+  // frequency axis
+  g.font = "10px Georgia, serif";
+  g.textAlign = "center";
+  const yAxis = top + rowH * active.length + 4;
+  for (const f of [50, 100, 200, 500, 1000, 2000, 5000, 10000]) {
+    if (f < fmin || f > fmax) continue;
+    g.strokeStyle = "#ece5d4";
+    g.beginPath(); g.moveTo(X(f), top); g.lineTo(X(f), yAxis); g.stroke();
+    g.fillStyle = "#786f60";
+    g.fillText(f >= 1000 ? f / 1000 + " kHz" : f + " Hz", X(f), yAxis + 12);
+  }
+
+  // links between partials of different tones
+  const inter = orderInteracting(interacting(pairs));
+  const link = (p, color, width, alpha) => {
+    let ia = row.get(p.ta), ib = row.get(p.tb), pa = p.p, pb = p.q;
+    if (ia > ib) { const t = ia; ia = ib; ib = t; const u = pa; pa = pb; pb = u; }
+    g.globalAlpha = alpha;
+    g.strokeStyle = color;
+    g.lineWidth = width;
+    g.beginPath(); g.moveTo(X(pa.f), base(ia)); g.lineTo(X(pb.f), base(ib) - tickH(pb.a)); g.stroke();
+    g.globalAlpha = 1;
+    return [(X(pa.f) + X(pb.f)) / 2, (base(ia) + base(ib) - tickH(pb.a)) / 2];
+  };
+  for (const p of pairs) if (p.df < 0.01) link(p, LOCK_COLOR, 3, 0.9);
+  const labels = [];
+  inter.forEach((p, k) => {
+    const mid = link(p, BEAT_COLOR, 2, Math.min(1, 0.35 + p.d / 0.3 + (p.df < 20 ? 0.4 : 0)));
+    if (k < 5) labels.push({ x: mid[0], y: mid[1], text: p.df < 10 ? p.df.toFixed(1) + " Hz" : Math.round(p.df) + " Hz" });
+  });
+
+  // the partials themselves
+  active.forEach((tn, i) => {
+    g.strokeStyle = "#d8d0bd";
+    g.lineWidth = 1;
+    g.beginPath(); g.moveTo(L, base(i)); g.lineTo(R, base(i)); g.stroke();
+    g.fillStyle = TONE_COLORS[tn.t];
+    g.font = "bold 12px Georgia, serif";
+    g.textAlign = "left";
+    g.fillText(String(tn.t + 1), 6, base(i) - 4);
+    g.strokeStyle = TONE_COLORS[tn.t];
+    g.lineWidth = 3;
+    for (const p of tn.partials) {
+      g.beginPath(); g.moveTo(X(p.f), base(i)); g.lineTo(X(p.f), base(i) - tickH(p.a)); g.stroke();
+    }
+  });
+
+  // beat-rate labels on top
+  g.font = "11px Georgia, serif";
+  g.textAlign = "center";
+  for (const lb of labels) {
+    const tw = g.measureText(lb.text).width + 6;
+    g.fillStyle = "rgba(251,249,242,0.9)";
+    g.fillRect(lb.x - tw / 2, lb.y - 8, tw, 15);
+    g.fillStyle = BEAT_COLOR;
+    g.fillText(lb.text, lb.x, lb.y + 3);
+  }
+  g.setTransform(1, 0, 0, 1, 0, 0);
+}
+
+// ---------- the beat list ----------
+
+function renderBeats(active, pairs) {
+  const box = $("beatList");
+  const total = pairs.reduce((s, p) => s + p.d, 0);
+  $("roughTotal").innerHTML = active.length < 2 ? "Only tone 1 is on: switch on another tone to hear them interact."
+    : "Roughness of what's playing: <b class=num>" + total.toFixed(3) + "</b> (model units). For comparison, the roughest point on the curve is " + lab.curveMax.toFixed(3) + ".";
+  if (active.length < 2) { box.innerHTML = '<p class="cap">Nothing to beat against yet.</p>'; return; }
+
+  const locked = pairs.filter(p => p.df < 0.01).length;
+  const inter = orderInteracting(interacting(pairs));
+  const name = (t, p) => '<span class="chip" style="background:' + TONE_COLORS[t] + '"></span> partial ' + p.n + " <span class=num>(" + p.f.toFixed(1) + " Hz)</span>";
+  let html = "<p class=cap style='margin-top:0'>" +
+    (locked ? "<b style='color:" + LOCK_COLOR + "'>" + locked + " pair" + (locked === 1 ? "" : "s") + "</b> of partials coincide exactly: they reinforce each other and nothing wobbles. " : "No partials coincide exactly. ") +
+    (inter.length ? "These pairs are close enough to interact (slow beats first). The small wave draws one second of each beat (a solid band means too fast to draw); the percentage is the pair's share of the total roughness." : "No partials are close enough to interact: smooth.") + "</p>";
+  inter.slice(0, 8).forEach((p, i) => {
+    html += '<div class="beatrow"><div>' + name(p.ta, p.p) + " &amp; " + name(p.tb, p.q) +
+      "<br><b class=num>" + (p.df < 10 ? p.df.toFixed(2) : p.df.toFixed(1)) + " beats/s</b> <span class=kind>" + beatKind(p.df) + "</span></div>" +
+      '<canvas data-df="' + p.df + '"></canvas><div class="share num">' + (total > 0 ? Math.round(100 * p.d / total) : 0) + "%</div></div>";
+  });
+  if (inter.length > 8) html += '<p class="cap">…and ' + (inter.length - 8) + " more.</p>";
+  box.innerHTML = html;
+  box.querySelectorAll("canvas").forEach(cv => drawSparkline(cv, +cv.dataset.df));
+}
+
+// One second of the loudness swell cos(2π·df·t).
+function drawSparkline(cv, df) {
+  const { g, w, h } = prep(cv);
+  // Faster than about one cycle per 4 pixels can't be drawn honestly (it aliases
+  // into fake slow beats), so draw a solid band instead.
+  if (df > w / 4) {
+    g.fillStyle = "rgba(200,69,46,0.35)";
+    g.fillRect(0, 0.08 * h, w, 0.84 * h);
+    return;
+  }
+  g.strokeStyle = BEAT_COLOR;
+  g.lineWidth = 1;
+  g.beginPath();
+  const n = 2 * w;
+  for (let i = 0; i <= n; i++) {
+    const t = i / n, y = h / 2 - 0.42 * h * Math.cos(2 * Math.PI * df * t);
+    if (i) g.lineTo(t * w, y); else g.moveTo(0, y);
+  }
+  g.stroke();
+}
+
+// =====================================================================
+// THE CHORD CLOCK
+// =====================================================================
+
+const IC_COLORS = [null, "#b8432f", "#d08a2e", "#8a9a2b", "#2f8a6a", "#2b6aa8", "#7a4aa0"];
+const IC_NAMES = [null, "minor 2nd or major 7th", "major 2nd or minor 7th", "minor 3rd or major 6th",
+  "major 3rd or minor 6th", "perfect 4th or 5th", "tritone"];
+const CK = { R: 150, RN: 190, rDot: 17 };
+
+const clock = { mask: maskOf([0, 4, 7]), showLines: true, mirrorGal: true, anim: false, lit: -1, hiIc: 0, galKey: "", gal: null };
+const ck = { axes: null, shape: null };
+
+// Position of pitch class k (may be fractional) at radius r, clockwise from the top.
+function pcPos(k, r) {
+  const a = 2 * Math.PI * k / 12;
+  return [r * Math.sin(a), -r * Math.cos(a)];
+}
+
+function buildDial() {
+  const svg = $("clockSvg");
+  svg.innerHTML = "";
+  el("circle", { r: CK.R, fill: "none", stroke: "#d8d0bd", "stroke-width": 2 }, svg);
+  ck.axes = el("g", {}, svg);
+  const dots = el("g", {}, svg);
+  for (let k = 0; k < 12; k++) {
+    const [x, y] = pcPos(k, CK.R), [nx, ny] = pcPos(k, CK.RN);
+    const g = el("g", { class: "pc" }, dots);
+    el("circle", { cx: x, cy: y, r: CK.rDot }, g);
+    const t = el("text", { x: x, y: y, "text-anchor": "middle", "dominant-baseline": "central" }, g);
+    t.textContent = k;
+    const nm = el("text", { x: nx, y: ny, "text-anchor": "middle", "dominant-baseline": "central", class: "pcname" }, svg);
+    nm.textContent = NOTE_NAMES[k];
+    g.addEventListener("click", () => {
+      if (clock.anim) return;
+      clock.mask ^= 1 << k;
+      $("clockNote").innerHTML = "";
+      clockChanged();
+    });
+  }
+  ck.shape = el("g", { style: "pointer-events:none" }, svg);   // drawn on top; clicks pass through
+}
+
+function drawShape() {
+  const G = ck.shape, m = clock.mask, pcs = pcsOf(m);
+  G.innerHTML = "";
+  ck.axes.innerHTML = "";
+  if (pcs.length && pcs.length < 12) {
+    for (const j of mirrorAxes(m)) {
+      const [x1, y1] = pcPos(j / 2, CK.R + 26), [x2, y2] = pcPos(j / 2 + 6, CK.R + 26);
+      el("line", { x1: x1, y1: y1, x2: x2, y2: y2, class: "axis" }, ck.axes);
+    }
+  }
+  const P = pcs.map(p => pcPos(p, CK.R));
+  if (pcs.length >= 3) {
+    el("polygon", { points: P.map(q => q.join(",")).join(" "), fill: "rgba(31,28,24,0.08)",
+      stroke: "#1f1c18", "stroke-width": clock.showLines ? 1 : 2.5 }, G);
+  } else if (pcs.length === 2 && !clock.showLines) {
+    el("line", { x1: P[0][0], y1: P[0][1], x2: P[1][0], y2: P[1][1], stroke: "#1f1c18", "stroke-width": 2.5 }, G);
+  }
+  if (clock.showLines) {
+    for (let i = 0; i < pcs.length; i++) {
+      for (let j = i + 1; j < pcs.length; j++) {
+        const d = pcs[j] - pcs[i], ic = Math.min(d, 12 - d);
+        const faded = clock.hiIc && clock.hiIc !== ic;
+        el("line", { x1: P[i][0], y1: P[i][1], x2: P[j][0], y2: P[j][1], stroke: IC_COLORS[ic],
+          "stroke-width": clock.hiIc === ic ? 4 : 2.5, opacity: faded ? 0.1 : 0.85 }, G);
+      }
+    }
+  }
+  pcs.forEach((p, i) => {
+    el("circle", { cx: P[i][0], cy: P[i][1], r: CK.rDot, class: "sel" + (p === clock.lit ? " lit" : "") }, G);
+    const t = el("text", { x: P[i][0], y: P[i][1], "text-anchor": "middle", "dominant-baseline": "central", class: "seltext" }, G);
+    t.textContent = p;
+  });
+}
+
+// ---------- turning and flipping, animated ----------
+
+function animateShape(kind, d, done) {
+  clock.anim = true;
+  ck.axes.style.opacity = 0;
+  const t0 = performance.now(), ms = kind === "rot" ? 260 : 420;
+  function step(now) {
+    const u = Math.min(1, (now - t0) / ms), e = u < 0.5 ? 2 * u * u : 1 - Math.pow(-2 * u + 2, 2) / 2;
+    ck.shape.setAttribute("transform", kind === "rot" ? "rotate(" + 30 * d * e + ")" : "scale(" + (1 - 2 * e) + ",1)");
+    if (u < 1) requestAnimationFrame(step);
+    else {
+      ck.shape.removeAttribute("transform");
+      ck.axes.style.opacity = 1;
+      clock.anim = false;
+      done();
+    }
+  }
+  requestAnimationFrame(step);
+}
+
+function rotateClock(d) {
+  if (clock.anim || !clock.mask) return;
+  animateShape("rot", d, () => { clock.mask = rotateMask(clock.mask, d); clockChanged(); });
+}
+
+function flipClock(after) {
+  if (clock.anim || !clock.mask) return;
+  animateShape("flip", 0, () => { clock.mask = invertMask(clock.mask); clockChanged(); if (after) after(); });
+}
+
+// ---------- sound ----------
+
+// Close position from the start note, in the octave around middle C.
+function voicing(m) {
+  const s = startOf(m), rel = pcsOf(rotateMask(m, -s)), base = 57 + mod(s - 9, 12);  // A3..A♭4
+  return rel.map(r => ({ pc: mod(s + r, 12), midi: base + r }));
+}
+
+function playClock() {
+  const m = clock.mask, k = sizeOf(m);
+  if (!k) return;
+  const a = ctx();
+  a.resume();
+  const notes = voicing(m), gap = 0.17, t0 = a.currentTime + 0.05;
+  notes.forEach((n, i) => {
+    pluck(n.midi, t0 + i * gap, 1.1, 0.22);
+    setTimeout(() => lightNote(n.pc), (i * gap + 0.05) * 1000);
+  });
+  const tc = t0 + k * gap + 0.12;
+  notes.forEach(n => pluck(n.midi, tc, 2.2, 0.55 / Math.max(2, k)));
+  setTimeout(() => lightNote(-1), (k * gap + 0.12) * 1000 + 700);
+}
+
+function lightNote(pc) {
+  clock.lit = pc;
+  if (!clock.anim) drawShape();
+}
+
+// ---------- the panels ----------
+
+function chordLine(g) {
+  if (g.t.kind === "chord") {
+    return "<b>" + g.roots.map(r => NOTE_NAMES[r] + g.t.sym).join(" = ") + "</b> <span class=faint>· " + g.t.name + "</span>";
+  }
+  const roots = g.roots.map(r => NOTE_NAMES[r]);
+  return "<b>" + g.t.name + "</b> on " + (roots.length > 1 ? roots.slice(0, -1).join(", ") + " or " + roots[roots.length - 1] + " <span class=faint>(all the same notes)</span>" : roots[0]);
+}
+
+function shortName(m) {
+  const g = namesOf(m)[0];
+  if (!g) return pcsOf(m).map(p => NOTE_NAMES[p]).join(" ");
+  return g.t.kind === "chord" ? NOTE_NAMES[g.roots[0]] + g.t.sym + " (" + g.t.name + ")" : g.t.name + " on " + NOTE_NAMES[g.roots[0]];
+}
+
+function renderClockInfo() {
+  const m = clock.mask, pcs = pcsOf(m), k = pcs.length;
+
+  // notes and names
+  $("ckNotes").innerHTML = k ? pcs.map(p => NOTE_NAMES[p]).join(" ") + ' <span class="num faint">{' + pcs.join(", ") + "}</span>"
+    : "No notes yet: click the dots on the clock.";
+  const groups = namesOf(m);
+  $("ckNames").innerHTML = groups.length ? groups.map(g => "<div>" + chordLine(g) + "</div>").join("")
+    : (k > 1 ? "<div class=faint>No name in this page's list. (Plenty of good chords don't have a common name.)</div>" : "");
+  $("toLab").disabled = k < 2 || k > 4;
+  $("toLab").title = k < 2 || k > 4 ? "The Beat Lab has room for 2 to 4 notes" : "";
+
+  // shape
+  if (k < 2) {
+    $("ckShape").innerHTML = '<p class="cap" style="margin-top:0">Pick at least two notes to see a shape.</p>';
+  } else {
+    const s = startOf(m), steps = stepsOf(m), rot = rotationalSymmetries(m), axes = mirrorAxes(m);
+    const T = 12 / (rot.length + 1);
+    let html = "<p style='margin:0 0 6px'>Clockwise from " + NOTE_NAMES[s] + ", the gaps between notes are <b class=num>" +
+      steps.join(" · ") + "</b> semitones. They always add up to 12.</p>";
+    html += T === 12
+      ? "<p style='margin:0 0 6px'><b>Turning:</b> it only lands back on itself after a full turn, so there are 12 different transpositions of it, one starting on each note.</p>"
+      : "<p style='margin:0 0 6px'><b>Turning:</b> it lands back on itself after only " + rot[0] + " step" + (rot[0] === 1 ? "" : "s") +
+        ", so there are just <b>" + T + "</b> different transposition" + (T === 1 ? "" : "s") + " of it instead of 12.</p>";
+    if (axes.length) {
+      html += "<p style='margin:0'><b>Flipping:</b> it is its own mirror image, with " + axes.length + " mirror line" + (axes.length === 1 ? "" : "s") +
+        " (dashed). Flip it and you get one of its own transpositions.</p>";
+    } else {
+      html += "<p style='margin:0'><b>Flipping:</b> its mirror image is a different shape: <b>" + shortName(invertMask(m)) +
+        "</b>. Press Flip. (Major and minor triads are a pair like this.)</p>";
+    }
+    $("ckShape").innerHTML = html;
+  }
+
+  // interval vector
+  if (k < 2) {
+    $("ckIv").innerHTML = '<p class="cap" style="margin-top:0">Each pair of notes makes one interval.</p>';
+    $("ckZ").innerHTML = "";
+  } else {
+    const v = intervalVector(m);
+    let html = "<p class=cap style='margin-top:0'>Every pair of notes is an interval. Counted the short way round the clock it is 1 to 6 steps; the long way round is the same interval turned upside down (a 4th up is a 5th down). " +
+      k + " notes make " + (k * (k - 1) / 2) + " pairs. Click a row to highlight its lines.</p>";
+    for (let ic = 1; ic <= 6; ic++) {
+      let bar = "";
+      for (let i = 0; i < v[ic - 1]; i++) bar += '<span style="background:' + IC_COLORS[ic] + '"></span>';
+      html += '<div class="ivrow' + (clock.hiIc === ic ? " hi" : "") + '" data-ic="' + ic + '"><span class="chip" style="background:' + IC_COLORS[ic] + '"></span>' +
+        '<span class="num">' + ic + "</span><span>" + IC_NAMES[ic] + '</span><b class="num">' + v[ic - 1] + '</b><span class="bar">' + bar + "</span></div>";
+    }
+    $("ckIv").innerHTML = html;
+    $("ckIv").querySelectorAll(".ivrow").forEach(r => r.addEventListener("click", () => {
+      const ic = +r.dataset.ic;
+      clock.hiIc = clock.hiIc === ic ? 0 : ic;
+      clock.showLines = true;
+      $("showLines").checked = true;
+      drawShape();
+      renderClockInfo();
+    }));
+
+    // Z-related shapes
+    const tw = zTwins(m);
+    let z = "";
+    if (!mirrorAxes(m).length) z += "<p class=cap>Its mirror image, " + shortName(invertMask(m)) + ", has exactly the same counts: flipping reverses the order of the gaps but keeps every interval.</p>";
+    if (tw.length) {
+      z += "<p style='margin:6px 0 0'><b>A stranger twin.</b> " + (tw.length === 1 ? "Another shape has" : tw.length + " other shapes have") +
+        " exactly the same interval counts, yet no turn or flip turns one into the other. Theorists call this the <i>Z-relation</i>: ";
+      z += tw.map((t, i) => '<button data-z="' + t + '" style="padding:1px 8px">' + pcsOf(t).map(p => NOTE_NAMES[p]).join(" ") + "</button>").join(" ") + "</p>";
+    } else if (k >= 2 && k <= 10) {
+      z += "<p class=cap>Apart from its own turns and flips, no other shape has exactly these interval counts.</p>";
+    }
+    $("ckZ").innerHTML = z;
+    $("ckZ").querySelectorAll("button[data-z]").forEach(b => b.addEventListener("click", () => {
+      clock.mask = +b.dataset.z;
+      clockChanged();
+      playClock();
+    }));
+  }
+
+  renderCounting(k);
+}
+
+function renderCounting(k) {
+  if (k === 0) { $("ckCount").innerHTML = '<p class="cap" style="margin-top:0">Pick some notes.</p>'; return; }
+  const N = binom(12, k), tn = countShapes(k, false), tni = countShapes(k, true);
+  let html = "<p style='margin:0 0 6px'>There are C(12, " + k + ") = <b>" + N + "</b> ways to choose " + k + " of the 12 dots. " +
+    "But turning a shape doesn't make it a new shape: count shapes and there are <b>" + tn + "</b>. " +
+    "Count a shape and its mirror image as the same shape and there are <b>" + tni + "</b>.</p>";
+
+  // rotation terms, grouped by how many chords each rotation leaves unchanged
+  const fixes = [];
+  for (let r = 0; r < 12; r++) fixes.push(rotationFixes(r, k));
+  const groups = new Map();
+  for (let r = 1; r < 12; r++) if (fixes[r]) { if (!groups.has(fixes[r])) groups.set(fixes[r], []); groups.get(fixes[r]).push(r); }
+  const rotSum = fixes.reduce((a, b) => a + b, 0);
+  let terms = [String(N)];
+  let words = "doing nothing leaves all " + N + " chords unchanged";
+  for (const [f, rs] of groups) {
+    rs.forEach(() => terms.push(String(f)));
+    words += "; turning by " + rs.join(" or ") + " step" + (rs.length === 1 && rs[0] === 1 ? "" : "s") + " leaves " + f + " unchanged" + (rs.length > 1 ? " each" : "");
+  }
+  words += groups.size ? "; every other turn leaves none" : "; every other turn leaves none of them";
+  const through = flipFixesThrough(k), between = flipFixesBetween(k);
+  html += "<details style='margin-top:4px'><summary>How to count without listing them (Burnside's lemma)</summary>" +
+    "<p>Average, over all the moves allowed, how many chords each move leaves exactly where they were.</p>" +
+    "<p><b>Turns only:</b> (" + terms.join(" + ") + ") / 12 = " + rotSum + " / 12 = <b>" + tn + "</b>. Here " + words + ".</p>" +
+    "<p><b>Turns and flips:</b> add the 12 flips. The 6 flips whose mirror line passes through two dots each leave " + through +
+    " chords unchanged; the 6 whose line passes between dots each leave " + between + ". (" + rotSum + " + " + (6 * through) + " + " + (6 * between) +
+    ") / 24 = " + (rotSum + 6 * through + 6 * between) + " / 24 = <b>" + tni + "</b>.</p>" +
+    "<p class=cap>The gallery below lists them all by brute force, and gets the same answer.</p></details>";
+  $("ckCount").innerHTML = html;
+}
+
+// ---------- the gallery ----------
+
+function renderGallery() {
+  const m = clock.mask, k = sizeOf(m), mirror = clock.mirrorGal;
+  if (k === 0) {
+    $("galTitle").textContent = "Every shape";
+    $("galSum").textContent = "Pick some notes on the clock to see every shape with that many notes.";
+    $("gallery").innerHTML = "";
+    clock.galKey = "";
+    return;
+  }
+  const key = k + "|" + mirror;
+  if (key !== clock.galKey) {
+    clock.gal = allClasses(k, mirror);
+    clock.galKey = key;
+    const box = $("gallery");
+    box.innerHTML = "";
+    for (const c of clock.gal) {
+      const d = document.createElement("div");
+      d.className = "gcard";
+      d.dataset.key = c.key;
+      d.title = pcsOf(c.rep).map(p => NOTE_NAMES[p]).join(" ") + "  {" + pcsOf(c.rep).join(",") + "}";
+      d.appendChild(miniClock(c.rep));
+      const names = classNames(c.rep, mirror);
+      const lab = document.createElement("div");
+      lab.innerHTML = '<span class="cnt">×' + c.count + "</span><br>" + (names.length ? names.join(" / ") : '<span class="faint">' + pcsOf(c.rep).join(" ") + "</span>");
+      d.appendChild(lab);
+      d.addEventListener("click", () => { clock.mask = c.rep; $("clockNote").innerHTML = ""; clockChanged(); playClock(); });
+      box.appendChild(d);
+    }
+    const sum = clock.gal.reduce((s, c) => s + c.count, 0);
+    $("galTitle").textContent = "Every shape with " + k + " note" + (k === 1 ? "" : "s") + ": " + clock.gal.length;
+    $("galSum").innerHTML = "Each card is one shape, drawn starting on C. The red number is how many different chords on the clock have that shape: its transpositions" +
+      (mirror ? ", plus its mirror image's when the mirror is a different shape" : "") +
+      ". Symmetric shapes have fewer. Add up the red numbers and you get <b>" + sum + "</b> = C(12, " + k + "), every possible choice of " + k + " notes. Click a card to load it.";
+  }
+  const cur = canonical(m, mirror);
+  $("gallery").querySelectorAll(".gcard").forEach(d => d.classList.toggle("cur", +d.dataset.key === cur));
+}
+
+function miniClock(m) {
+  const svg = document.createElementNS(NS, "svg");
+  svg.setAttribute("viewBox", "-36 -36 72 72");
+  const pcs = pcsOf(m), P = pcs.map(p => pcPos(p, 28));
+  el("circle", { r: 28, fill: "none", stroke: "#e3dccb", "stroke-width": 1 }, svg);
+  if (pcs.length >= 3) el("polygon", { points: P.map(q => q.join(",")).join(" "), fill: "rgba(31,28,24,0.1)", stroke: "#1f1c18", "stroke-width": 1.4 }, svg);
+  else if (pcs.length === 2) el("line", { x1: P[0][0], y1: P[0][1], x2: P[1][0], y2: P[1][1], stroke: "#1f1c18", "stroke-width": 1.4 }, svg);
+  for (let k = 0; k < 12; k++) {
+    const [x, y] = pcPos(k, 28), on = (m >> k) & 1;
+    el("circle", { cx: x, cy: y, r: on ? 3.6 : 1.8, fill: on ? "#1f1c18" : "#b9b09c" }, svg);
+  }
+  return svg;
+}
+
+function clockChanged() {
+  drawShape();
+  renderClockInfo();
+  renderGallery();
+}
+
+// ---------- sending a chord to the Beat Lab ----------
+
+function sendToLab() {
+  const m = clock.mask, k = sizeOf(m);
+  if (k < 2 || k > 4) return;
+  const s = startOf(m), rel = pcsOf(rotateMask(m, -s));
+  lab.root = (s < 6 ? 60 : 48) + s;             // root between F♯3 and F4
+  lab.tones.forEach((tone, t) => {
+    if (t === 0) return;
+    tone.on = t < rel.length;
+    if (tone.on) tone.cents = 100 * rel[t];
+  });
+  writeLabControls();
+  labChanged();
+  startDrone();
+  $("labNote").innerHTML = "From the Chord Clock: <b>" + shortName(m) + "</b> as a piano would tune it, starting on " + midiName(lab.root) +
+    ". Look at the roughness number and the beats, then try nudging tones toward the green ratio marks on the curve, or changing what the tones are made of.";
+  $("lab").scrollIntoView({ behavior: "smooth" });
+}
+
+// ---------- the "Try this" presets ----------
+
+const CLOCK_TRIES = [
+  { label: "A major triad", pcs: [0, 4, 7],
+    note: "C E G. Going round from C, the gaps are 4, 3 and 5 semitones. Press ▶ and it becomes C♯ major, then D major, and so on: all twelve major triads are the same triangle, turned." },
+  { label: "Flip it", pcs: [0, 4, 7], then: "flip",
+    note: "Flipping C major across the C–F♯ line gives F A♭ C: F minor. Read clockwise, the gaps 4·3·5 have become 3·4·5. Every minor triad is a flipped major triad, and the interval panel shows they contain exactly the same intervals, just in the opposite order. Yet they sound very different, which says something about how much order matters." },
+  { label: "Augmented triad", pcs: [0, 4, 8], then: "spin",
+    note: "C E A♭ (also written C E G♯): an equilateral triangle. Watch it turn. After 4 steps it lands back on the same dots, so there are only 4 different augmented triads, and each goes by three names (C+ = E+ = A♭+)." },
+  { label: "Diminished seventh", pcs: [0, 3, 6, 9],
+    note: "C E♭ F♯ A: a square. It repeats every 3 steps, so there are only 3 different diminished seventh chords, each with four names. It has four mirror lines. Composers love it for exactly this ambiguity: it can lead in many directions." },
+  { label: "Same notes, two names", pcs: [0, 4, 7, 9],
+    note: "C E G A. Is it C6 (C major with an added sixth) or Am7 (A minor seventh)? On the clock it is one shape with two readings. Which name a musician uses depends mostly on which note is in the bass, and the clock deliberately forgets that." },
+  { label: "Csus2 = Gsus4", pcs: [0, 2, 7],
+    note: "C D G is Csus2; G C D is Gsus4. Same three dots. It is also a stack of fifths (C to G to D) folded into one octave: notice the two purple lines in the interval view." },
+  { label: "Twins that aren't mirrors", pcs: [0, 1, 4, 6],
+    note: "C D♭ E F♯ has one of every interval, each exactly once (look at the interval panel). So does C D♭ E♭ G, but no turn or flip turns one into the other. These two are the only four-note shapes with every interval exactly once. Use the button in the interval panel to jump between them." },
+  { label: "Whole-tone scale", pcs: [0, 2, 4, 6, 8, 10],
+    note: "Every other dot: a hexagon. It repeats every 2 steps, so there are only two whole-tone scales. Every gap is the same size, so no note stands out as \"home\", which gives the scale its floating, unresolved sound." },
+  { label: "The white keys", pcs: [0, 2, 4, 5, 7, 9, 11],
+    note: "The seven white keys of the piano: C major and A minor use the same dots. It has exactly one mirror line, through D and A♭. Read from D the gaps are 2 1 2 2 2 1 2, the same backwards as forwards." },
+];
+
+function applyClockTry(p) {
+  if (clock.anim) return;
+  clock.mask = maskOf(p.pcs);
+  clock.hiIc = 0;
+  $("clockNote").innerHTML = p.note;
+  clockChanged();
+  if (p.then === "flip") {
+    playClock();
+    setTimeout(() => flipClock(playClock), 1500);
+  } else if (p.then === "spin") {
+    playClock();
+    let i = 0;
+    const next = () => { if (i++ < 4) { rotateClock(1); setTimeout(next, 600); } };
+    setTimeout(next, 1400);
+  } else {
+    playClock();
+  }
+}
+
+// ---------- wiring ----------
+
+function buildClockControls() {
+  buildDial();
+  $("rotL").addEventListener("click", () => rotateClock(-1));
+  $("rotR").addEventListener("click", () => rotateClock(1));
+  $("flipBtn").addEventListener("click", () => flipClock());
+  $("ckPlay").addEventListener("click", playClock);
+  $("ckClear").addEventListener("click", () => { clock.mask = 0; clock.hiIc = 0; $("clockNote").innerHTML = ""; clockChanged(); });
+  $("ckRandom").addEventListener("click", () => {
+    const k = sizeOf(clock.mask) || 3, pcs = [];
+    while (pcs.length < k) { const p = Math.floor(Math.random() * 12); if (!pcs.includes(p)) pcs.push(p); }
+    clock.mask = maskOf(pcs);
+    $("clockNote").innerHTML = "";
+    clockChanged();
+    playClock();
+  });
+  $("showLines").addEventListener("change", e => { clock.showLines = e.target.checked; if (!clock.showLines) clock.hiIc = 0; drawShape(); renderClockInfo(); });
+  $("mirrorGal").addEventListener("change", e => { clock.mirrorGal = e.target.checked; renderGallery(); });
+  $("toLab").addEventListener("click", sendToLab);
+  CLOCK_TRIES.forEach(p => {
+    const b = document.createElement("button");
+    b.textContent = p.label;
+    b.addEventListener("click", () => applyClockTry(p));
+    $("clockTries").appendChild(b);
+  });
+}
+
+document.addEventListener("keydown", e => {
+  const tag = e.target.tagName;
+  if (tag === "TEXTAREA" || tag === "SELECT" || (tag === "INPUT" && e.target.type !== "checkbox")) return;
+  if (e.key === " ") { e.preventDefault(); lab.playing ? stopDrone() : startDrone(); }
+  else if (e.key === "ArrowLeft") { e.preventDefault(); rotateClock(-1); }
+  else if (e.key === "ArrowRight") { e.preventDefault(); rotateClock(1); }
+  else if (e.key === "f" || e.key === "F") flipClock();
+  else if (e.key === "p" || e.key === "P") playClock();
+});
+
+let resizeTimer = null;
+window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(labChanged, 80); });
+
+buildLabControls();
+writeLabControls();
+labChanged();
+buildClockControls();
+clockChanged();
+</script>
+</body>
+</html>
